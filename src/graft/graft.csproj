@@ -5,6 +5,7 @@
     <RootNamespace>Graft</RootNamespace>
     <AssemblyName>graft</AssemblyName>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+     <PublishTrimmed>true</PublishTrimmed>
   </PropertyGroup>
 
   <ItemGroup>

@@ -19,6 +19,34 @@ Publish and install `graft` locally:
 .\scripts\publish.ps1
 ```
 
+or from Bash:
+
+```bash
+./scripts/publish.sh
+```
+
+The script auto-detects the local Windows architecture and publishes `win-x64` or `win-arm64` accordingly.
+You can override it explicitly:
+
+```powershell
+.\scripts\publish.ps1 -RuntimeIdentifier win-arm64
+```
+
+```bash
+./scripts/publish.sh --runtime-identifier win-arm64
+```
+
+The current app version is defined centrally in `Directory.Build.props`.
+For local prerelease builds, you can add a suffix during publish:
+
+```powershell
+.\scripts\publish.ps1 -VersionSuffix dev
+```
+
+```bash
+./scripts/publish.sh --version-suffix dev
+```
+
 That installs the executable to:
 
 ```text
@@ -59,6 +87,12 @@ Show built-in help:
 
 ```powershell
 graft --help
+```
+
+Show the installed version:
+
+```powershell
+graft --version
 ```
 
 Short command aliases:

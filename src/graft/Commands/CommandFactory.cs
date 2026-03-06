@@ -13,6 +13,7 @@ internal static class CommandFactory
         PruneHandler pruneHandler)
     {
         var rootCommand = new RootCommand("Manage Git worktrees from inside an existing repository.");
+        rootCommand.Options.Add(new VersionOption("--version", "-v"));
 
         rootCommand.Subcommands.Add(CreateCreateCommand(createHandler));
         rootCommand.Subcommands.Add(CreateListCommand(listHandler));

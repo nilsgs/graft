@@ -229,9 +229,9 @@ try {
         Assert-True ($defaultSha -eq $devSha) "Expected default create to use the current HEAD."
         Assert-True ($defaultOutput.Contains("wt.exe was not found")) "Expected validation runs to surface the missing wt.exe warning."
 
-        $fromMainOutput = Invoke-Graft $repo @("create", "feature/from-main", "--from-main")
+        $fromMainOutput = Invoke-Graft $repo @("create", "feature/from-main", "-l")
         $fromMainSha = Get-GitSha $repo "refs/heads/feature/from-main"
-        Assert-True ($fromMainSha -eq $mainSha) "Expected --from-main to use local main."
+        Assert-True ($fromMainSha -eq $mainSha) "Expected --from-local-main to use local main."
         Assert-True ($fromMainOutput.Contains("Creating new branch 'feature/from-main' from main...")) "Expected create output to mention main as the selected base."
     }
 
@@ -245,22 +245,24 @@ try {
 
         $originMainSha = Get-GitSha $repo "refs/remotes/origin/main"
 
-        $fromOriginOutput = Invoke-Graft $repo @("create", "feature/from-origin", "--from-origin-main")
+        $fromOriginOutput = Invoke-Graft $repo @("create", "feature/from-origin", "-o")
         $fromOriginSha = Get-GitSha $repo "refs/heads/feature/from-origin"
-        Assert-True ($fromOriginSha -eq $originMainSha) "Expected --from-origin-main to use origin/main."
+        Assert-True ($fromOriginSha -eq $originMainSha) "Expected --from-origin-main / -o to use origin/main."
         Assert-True ($fromOriginOutput.Contains("from origin/main")) "Expected create output to mention origin/main."
 
-        $fallbackOutput = Invoke-Graft $repo @("create", "feature/from-main-fallback", "--from-main")
+        $fallbackOutput = Invoke-Graft $repo @("create", "feature/from-main-fallback", "--from-local-main")
         $fallbackSha = Get-GitSha $repo "refs/heads/feature/from-main-fallback"
-        Assert-True ($fallbackSha -eq $originMainSha) "Expected --from-main to fall back to origin/main."
+        Assert-True ($fallbackSha -eq $originMainSha) "Expected --from-local-main to fall back to origin/main."
         Assert-True ($fallbackOutput.Contains("from origin/main")) "Expected fallback output to mention origin/main."
 
         Invoke-Git $repo @("branch", "feature/existing", "origin/main") | Out-Null
-        $warningOutput = Invoke-Graft $repo @("create", "feature/existing", "--from-main")
-        Assert-True ($warningOutput.Contains("Ignoring --from-main because branch 'feature/existing' already exists.")) "Expected existing-branch create to warn when --from-main is ignored."
+        $warningOutput = Invoke-Graft $repo @("create", "feature/existing", "--from-local-main")
+        $normalizedWarningOutput = $warningOutput -replace '\s+', ' '
+        Assert-True ($normalizedWarningOutput.Contains("Ignoring --from-local-main because branch 'feature/existing' already exists.")) "Expected existing-branch create to warn when --from-local-main is ignored."
 
-        $parseFailureOutput = Invoke-Graft $repo @("create", "feature/invalid", "--from-main", "--from-origin-main") 1
-        Assert-True ($parseFailureOutput.Contains("--from-main and --from-origin-main cannot be used together.")) "Expected mutual exclusion validation for create flags."
+        $parseFailureOutput = Invoke-Graft $repo @("create", "feature/invalid", "-l", "-o") 1
+        $normalizedParseFailureOutput = $parseFailureOutput -replace '\s+', ' '
+        Assert-True ($normalizedParseFailureOutput.Contains("--from-local-main and --from-origin-main cannot be used together.")) "Expected mutual exclusion validation for create flags."
     }
 
     Invoke-Scenario "list and remove manage created worktrees" {

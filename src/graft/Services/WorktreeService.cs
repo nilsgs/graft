@@ -482,7 +482,7 @@ internal sealed class WorktreeService
         }
 
         var flagName = branchBase == CreateBranchBase.Main
-            ? "--from-main"
+            ? "--from-local-main"
             : "--from-origin-main";
 
         return $"Ignoring {flagName} because branch '{branchName}' already exists.";

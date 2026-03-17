@@ -32,12 +32,12 @@ internal static class CommandFactory
             Description = "Branch name for the new worktree."
         };
 
-        var fromMainOption = new Option<bool>("--from-main", "-m")
+        var fromLocalMainOption = new Option<bool>("--from-local-main", "-l")
         {
             Description = "Create a new branch from local main, or origin/main if local main does not exist."
         };
 
-        var fromOriginMainOption = new Option<bool>("--from-origin-main")
+        var fromOriginMainOption = new Option<bool>("--from-origin-main", "-o")
         {
             Description = "Create a new branch from origin/main."
         };
@@ -45,20 +45,20 @@ internal static class CommandFactory
         var command = new Command("create", "Create a worktree for a branch and open it in Windows Terminal.");
         command.Aliases.Add("c");
         command.Arguments.Add(branchArgument);
-        command.Options.Add(fromMainOption);
+        command.Options.Add(fromLocalMainOption);
         command.Options.Add(fromOriginMainOption);
         command.Validators.Add(result =>
         {
-            if (result.GetValue(fromMainOption) && result.GetValue(fromOriginMainOption))
+            if (result.GetValue(fromLocalMainOption) && result.GetValue(fromOriginMainOption))
             {
-                result.AddError("--from-main and --from-origin-main cannot be used together.");
+                result.AddError("--from-local-main and --from-origin-main cannot be used together.");
             }
         });
         command.SetAction(async (parseResult, ct) =>
         {
             var branchName = parseResult.GetValue(branchArgument)!;
             var branchBase = GetCreateBranchBase(
-                parseResult.GetValue(fromMainOption),
+                parseResult.GetValue(fromLocalMainOption),
                 parseResult.GetValue(fromOriginMainOption));
             return await handler.HandleAsync(branchName, branchBase, ct);
         });

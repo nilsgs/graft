@@ -42,7 +42,19 @@ Use the repo-local NuGet config when building:
 dotnet build .\src\graft\graft.csproj -nologo --configfile .\NuGet.config
 ```
 
-For local installation and manual verification:
+Use the smoke harness first for behavioral validation:
+
+```powershell
+.\scripts\validate.ps1
+```
+
+The harness:
+- builds the CLI
+- runs it against disposable Git repositories
+- covers create/list/remove/cleanup/prune flows
+- intentionally runs without `wt.exe`, so that warning is expected during harness runs
+
+For local installation checks:
 
 ```powershell
 .\scripts\publish.ps1
@@ -53,8 +65,8 @@ graft --version
 There is currently no test project in this repository. If code changes affect behavior, prefer at minimum:
 
 1. Build successfully.
-2. Run the relevant CLI command manually from inside a real Git repository.
-3. Verify output and exit behavior for both success and failure paths when practical.
+2. Run `.\scripts\validate.ps1`.
+3. Fall back to manual CLI verification only for scenarios the harness does not cover.
 
 ## Editing Guidance
 

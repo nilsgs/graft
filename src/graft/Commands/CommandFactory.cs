@@ -100,9 +100,26 @@ internal static class CommandFactory
 
     private static Command CreateCleanupCommand(CleanupHandler handler)
     {
+        var allOption = new Option<bool>("--all")
+        {
+            Description = "Select all cleanup candidates without the interactive prompt."
+        };
+
+        var yesOption = new Option<bool>("--yes")
+        {
+            Description = "Skip the cleanup confirmation prompt."
+        };
+
         var command = new Command("cleanup", "Interactively remove obsolete managed worktrees.");
         command.Aliases.Add("x");
-        command.SetAction(async (_, ct) => await handler.HandleAsync(ct));
+        command.Options.Add(allOption);
+        command.Options.Add(yesOption);
+        command.SetAction(async (parseResult, ct) =>
+        {
+            var selectAll = parseResult.GetValue(allOption);
+            var assumeYes = parseResult.GetValue(yesOption);
+            return await handler.HandleAsync(selectAll, assumeYes, ct);
+        });
         return command;
     }
 

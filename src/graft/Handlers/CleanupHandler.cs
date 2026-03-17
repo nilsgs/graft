@@ -19,7 +19,7 @@ internal sealed class CleanupHandler
         _formatter = formatter;
     }
 
-    public async Task<int> HandleAsync(CancellationToken ct)
+    public async Task<int> HandleAsync(bool selectAll, bool assumeYes, CancellationToken ct)
     {
         var progress = _formatter.CreateProgressReporter();
         var context = await _repositoryContextFactory.CreateAsync(progress, ct);
@@ -28,7 +28,7 @@ internal sealed class CleanupHandler
             return context.ExitCode;
         }
 
-        var result = await _worktreeService.CleanupAsync(context.RepositoryRoot!, progress, ct);
+        var result = await _worktreeService.CleanupAsync(context.RepositoryRoot!, selectAll, assumeYes, progress, ct);
         if (!result.IsSuccess)
         {
             _formatter.WriteError(result.Message!);

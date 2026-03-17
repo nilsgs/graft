@@ -98,6 +98,12 @@ Show the installed version:
 graft --version
 ```
 
+Run the smoke validation harness:
+
+```powershell
+.\scripts\validate.ps1
+```
+
 Short command aliases:
 
 - `c` for `create`
@@ -213,6 +219,15 @@ graft x
 - gone upstream
 - merged into current `HEAD`
 
+For non-interactive cleanup:
+
+```powershell
+graft cleanup --all --yes
+```
+
+- `--all` selects all current cleanup candidates
+- `--yes` skips the confirmation prompt
+
 ### Prune
 
 Prune stale Git worktree metadata:
@@ -254,6 +269,23 @@ Or clean up several old worktrees interactively:
 ```powershell
 graft cleanup
 ```
+
+## Validation
+
+Run the built-in smoke harness after behavioral changes:
+
+```powershell
+.\scripts\validate.ps1
+```
+
+What it covers:
+- `create` from `HEAD`, `main`, and `origin/main`
+- `list`
+- `remove`
+- `cleanup --all --yes`
+- `prune`
+
+The harness builds `graft`, creates disposable Git repositories, and intentionally runs without `wt.exe`, so the Windows Terminal warning is expected during validation runs.
 
 ## Notes
 

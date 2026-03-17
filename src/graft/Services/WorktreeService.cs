@@ -138,6 +138,8 @@ internal sealed class WorktreeService
 
     public async Task<CleanupResult> CleanupAsync(
         string repositoryRoot,
+        bool selectAll,
+        bool assumeYes,
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
@@ -154,13 +156,15 @@ internal sealed class WorktreeService
             return new CleanupResult(true, ExitCodes.Success, "No removable managed worktrees found.", []);
         }
 
-        var selectedCandidates = _formatter.PromptForCleanup(candidates);
+        var selectedCandidates = selectAll
+            ? candidates
+            : _formatter.PromptForCleanup(candidates);
         if (selectedCandidates.Count == 0)
         {
             return new CleanupResult(true, ExitCodes.Success, "No worktrees selected.", []);
         }
 
-        if (!_formatter.ConfirmRemoval(selectedCandidates.Count))
+        if (!assumeYes && !_formatter.ConfirmRemoval(selectedCandidates.Count))
         {
             return new CleanupResult(true, ExitCodes.Success, "Cleanup cancelled.", []);
         }

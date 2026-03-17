@@ -1,5 +1,6 @@
 using Graft.Output;
 using Graft.Services;
+using Graft.Models;
 
 namespace Graft.Handlers;
 
@@ -22,7 +23,7 @@ internal sealed class CreateHandler
         _formatter = formatter;
     }
 
-    public async Task<int> HandleAsync(string branchName, CancellationToken ct)
+    public async Task<int> HandleAsync(string branchName, CreateBranchBase branchBase, CancellationToken ct)
     {
         var progress = _formatter.CreateProgressReporter();
         var context = await _repositoryContextFactory.CreateAsync(progress, ct);
@@ -31,11 +32,16 @@ internal sealed class CreateHandler
             return context.ExitCode;
         }
 
-        var result = await _worktreeService.CreateAsync(context.RepositoryRoot!, branchName, progress, ct);
+        var result = await _worktreeService.CreateAsync(context.RepositoryRoot!, branchName, branchBase, progress, ct);
         if (!result.IsSuccess)
         {
             _formatter.WriteError(result.ErrorMessage!);
             return ExitCodes.GitFailure;
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.WarningMessage))
+        {
+            _formatter.WriteWarning(result.WarningMessage);
         }
 
         _formatter.WriteCreateSuccess(result.Worktree!);

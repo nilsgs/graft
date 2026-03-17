@@ -80,6 +80,9 @@ graft
 - If the branch already exists locally, `graft` uses it.
 - If the branch exists only as `origin/<branch>`, `graft` creates a local tracking branch.
 - If the branch does not exist, `graft` creates it from the current `HEAD`.
+- `graft create --from-main` creates a new branch from local `main`, or `origin/main` if local `main` is not available.
+- `graft create --from-origin-main` creates a new branch from `origin/main` only.
+- If the target branch already exists, `--from-main` and `--from-origin-main` are ignored and `graft` prints a warning.
 
 ## Commands
 
@@ -111,6 +114,18 @@ Create a worktree for a branch and open it in a new Windows Terminal tab:
 graft create feature/my-branch
 ```
 
+Create a new branch from `main`:
+
+```powershell
+graft create feature/my-branch --from-main
+```
+
+Create a new branch from `origin/main` explicitly:
+
+```powershell
+graft create feature/my-branch --from-origin-main
+```
+
 Short form:
 
 ```powershell
@@ -120,6 +135,8 @@ graft c feature/my-branch
 Behavior:
 - creates `../.worktrees` if it does not exist
 - creates or reuses the branch as needed
+- supports `--from-main` / `-m` for new branches from `main`
+- supports `--from-origin-main` for new branches from `origin/main`
 - creates the worktree folder
 - opens a new Windows Terminal tab in that folder
 

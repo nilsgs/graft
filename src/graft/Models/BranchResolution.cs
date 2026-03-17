@@ -4,5 +4,5 @@ internal enum BranchResolution
 {
     ExistingLocal,
     ExistingRemote,
-    NewFromHead
+    NewBranch
 }

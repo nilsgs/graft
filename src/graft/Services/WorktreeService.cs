@@ -20,6 +20,7 @@ internal sealed class WorktreeService
     public async Task<CreateWorktreeResult> CreateAsync(
         string repositoryRoot,
         string branchName,
+        CreateBranchBase branchBase,
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
@@ -34,38 +35,46 @@ internal sealed class WorktreeService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return new CreateWorktreeResult(false, $"Could not prepare managed worktree directory '{managedRoot}': {ex.Message}", null);
+            return new CreateWorktreeResult(false, $"Could not prepare managed worktree directory '{managedRoot}': {ex.Message}", null, null);
         }
 
         try
         {
             if (Directory.Exists(targetPath) && Directory.EnumerateFileSystemEntries(targetPath).Any())
             {
-                return new CreateWorktreeResult(false, $"Target path already exists: {targetPath}", null);
+                return new CreateWorktreeResult(false, $"Target path already exists: {targetPath}", null, null);
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return new CreateWorktreeResult(false, $"Could not inspect target path '{targetPath}': {ex.Message}", null);
+            return new CreateWorktreeResult(false, $"Could not inspect target path '{targetPath}': {ex.Message}", null, null);
         }
 
         var branchResolution = await ResolveBranchAsync(repositoryRoot, branchName, progress, ct);
+        var warningMessage = GetIgnoredBaseWarning(branchResolution, branchName, branchBase);
+
+        var createBaseResult = await ResolveCreateBaseAsync(repositoryRoot, branchBase, ct);
+        if (!createBaseResult.IsSuccess)
+        {
+            return new CreateWorktreeResult(false, createBaseResult.ErrorMessage, null, null);
+        }
+
         string[] createArgs = branchResolution switch
         {
             BranchResolution.ExistingLocal => ["worktree", "add", targetPath, branchName],
             BranchResolution.ExistingRemote => ["worktree", "add", "--track", "-b", branchName, targetPath, $"origin/{branchName}"],
-            _ => ["worktree", "add", "-b", branchName, targetPath, "HEAD"]
+            _ => ["worktree", "add", "-b", branchName, targetPath, createBaseResult.GitRef!]
         };
 
-        progress?.Report(GetCreateProgressMessage(branchResolution, branchName));
+        progress?.Report(GetCreateProgressMessage(branchResolution, branchName, createBaseResult.DisplayName!));
 
         var result = await _gitService.RunAsync(repositoryRoot, ct, createArgs);
         if (!result.IsSuccess)
         {
-            return new CreateWorktreeResult(false, GetErrorMessage(result), null);
+            return new CreateWorktreeResult(false, GetErrorMessage(result), null, null);
         }
 
-        return new CreateWorktreeResult(true, null, CreateWorktreeInfo(targetPath, branchName));
+        return new CreateWorktreeResult(true, null, CreateWorktreeInfo(targetPath, branchName), warningMessage);
     }
 
     public async Task<ListWorktreesResult> ListAsync(
@@ -205,7 +214,47 @@ internal sealed class WorktreeService
             return BranchResolution.ExistingRemote;
         }
 
-        return BranchResolution.NewFromHead;
+        return BranchResolution.NewBranch;
+    }
+
+    private async Task<(bool IsSuccess, string? GitRef, string? DisplayName, string? ErrorMessage)> ResolveCreateBaseAsync(
+        string repositoryRoot,
+        CreateBranchBase branchBase,
+        CancellationToken ct)
+    {
+        switch (branchBase)
+        {
+            case CreateBranchBase.CurrentHead:
+                return (true, "HEAD", "HEAD", null);
+
+            case CreateBranchBase.Main:
+            {
+                var localMainExists = await GitRefExistsAsync(repositoryRoot, "refs/heads/main", ct);
+                if (localMainExists)
+                {
+                    return (true, "main", "main", null);
+                }
+
+                var originMainExists = await GitRefExistsAsync(repositoryRoot, "refs/remotes/origin/main", ct);
+                if (originMainExists)
+                {
+                    return (true, "origin/main", "origin/main", null);
+                }
+
+                return (false, null, null, "Could not find local 'main' or 'origin/main' to create the new branch from.");
+            }
+
+            case CreateBranchBase.OriginMain:
+            {
+                var originMainExists = await GitRefExistsAsync(repositoryRoot, "refs/remotes/origin/main", ct);
+                return originMainExists
+                    ? (true, "origin/main", "origin/main", null)
+                    : (false, null, null, "Could not find 'origin/main' to create the new branch from.");
+            }
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(branchBase), branchBase, null);
+        }
     }
 
     private async Task<IReadOnlyList<WorktreeCandidate>> GetCleanupCandidatesAsync(
@@ -405,14 +454,34 @@ internal sealed class WorktreeService
         return new WorktreeInfo(targetPath, branchName, string.Empty, false, false, false, false, true, ["ok", "created"]);
     }
 
-    private static string GetCreateProgressMessage(BranchResolution branchResolution, string branchName)
+    private async Task<bool> GitRefExistsAsync(string repositoryRoot, string gitRef, CancellationToken ct)
+    {
+        var result = await _gitService.RunAsync(repositoryRoot, ct, "show-ref", "--verify", "--quiet", gitRef);
+        return result.IsSuccess;
+    }
+
+    private static string GetCreateProgressMessage(BranchResolution branchResolution, string branchName, string baseDisplayName)
     {
         return branchResolution switch
         {
             BranchResolution.ExistingLocal => $"Creating worktree from local branch '{branchName}'...",
             BranchResolution.ExistingRemote => $"Creating tracking worktree from 'origin/{branchName}'...",
-            _ => $"Creating new branch '{branchName}' from HEAD..."
+            _ => $"Creating new branch '{branchName}' from {baseDisplayName}..."
         };
+    }
+
+    private static string? GetIgnoredBaseWarning(BranchResolution branchResolution, string branchName, CreateBranchBase branchBase)
+    {
+        if (branchResolution is BranchResolution.NewBranch || branchBase is CreateBranchBase.CurrentHead)
+        {
+            return null;
+        }
+
+        var flagName = branchBase == CreateBranchBase.Main
+            ? "--from-main"
+            : "--from-origin-main";
+
+        return $"Ignoring {flagName} because branch '{branchName}' already exists.";
     }
 
     private static string GetErrorMessage(CommandResult result)

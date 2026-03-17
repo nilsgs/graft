@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Graft.Handlers;
+using Graft.Models;
 
 namespace Graft.Commands;
 
@@ -31,13 +32,35 @@ internal static class CommandFactory
             Description = "Branch name for the new worktree."
         };
 
+        var fromMainOption = new Option<bool>("--from-main", "-m")
+        {
+            Description = "Create a new branch from local main, or origin/main if local main does not exist."
+        };
+
+        var fromOriginMainOption = new Option<bool>("--from-origin-main")
+        {
+            Description = "Create a new branch from origin/main."
+        };
+
         var command = new Command("create", "Create a worktree for a branch and open it in Windows Terminal.");
         command.Aliases.Add("c");
         command.Arguments.Add(branchArgument);
+        command.Options.Add(fromMainOption);
+        command.Options.Add(fromOriginMainOption);
+        command.Validators.Add(result =>
+        {
+            if (result.GetValue(fromMainOption) && result.GetValue(fromOriginMainOption))
+            {
+                result.AddError("--from-main and --from-origin-main cannot be used together.");
+            }
+        });
         command.SetAction(async (parseResult, ct) =>
         {
             var branchName = parseResult.GetValue(branchArgument)!;
-            return await handler.HandleAsync(branchName, ct);
+            var branchBase = GetCreateBranchBase(
+                parseResult.GetValue(fromMainOption),
+                parseResult.GetValue(fromOriginMainOption));
+            return await handler.HandleAsync(branchName, branchBase, ct);
         });
         return command;
     }
@@ -89,5 +112,17 @@ internal static class CommandFactory
         command.Aliases.Add("p");
         command.SetAction(async (_, ct) => await handler.HandleAsync(ct));
         return command;
+    }
+
+    private static CreateBranchBase GetCreateBranchBase(bool fromMain, bool fromOriginMain)
+    {
+        if (fromOriginMain)
+        {
+            return CreateBranchBase.OriginMain;
+        }
+
+        return fromMain
+            ? CreateBranchBase.Main
+            : CreateBranchBase.CurrentHead;
     }
 }

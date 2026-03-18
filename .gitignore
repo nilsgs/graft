@@ -1,4 +1,6 @@
+.vs/
+.dotnet/
+
 artifacts/
 bin/
 obj/
-.dotnet/

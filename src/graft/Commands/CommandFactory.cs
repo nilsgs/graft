@@ -14,7 +14,9 @@ internal static class CommandFactory
         PruneHandler pruneHandler)
     {
         var rootCommand = new RootCommand("Manage Git worktrees from inside an existing repository.");
-        rootCommand.Options.Add(new VersionOption("--version", "-v"));
+
+        var o = rootCommand.Options.OfType<VersionOption>().First();
+        o.Aliases.Add("-v");
 
         rootCommand.Subcommands.Add(CreateCreateCommand(createHandler));
         rootCommand.Subcommands.Add(CreateListCommand(listHandler));
@@ -109,7 +111,7 @@ internal static class CommandFactory
         {
             Description = "Skip the cleanup confirmation prompt."
         };
-
+        
         var command = new Command("cleanup", "Interactively remove obsolete managed worktrees.");
         command.Aliases.Add("x");
         command.Options.Add(allOption);
@@ -120,6 +122,7 @@ internal static class CommandFactory
             var assumeYes = parseResult.GetValue(yesOption);
             return await handler.HandleAsync(selectAll, assumeYes, ct);
         });
+
         return command;
     }
 

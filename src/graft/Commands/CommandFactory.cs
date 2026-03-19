@@ -8,17 +8,19 @@ internal static class CommandFactory
 {
     public static RootCommand CreateRootCommand(
         CreateHandler createHandler,
+        NavigateHandler navigateHandler,
         ListHandler listHandler,
         RemoveHandler removeHandler,
         CleanupHandler cleanupHandler,
         PruneHandler pruneHandler)
     {
-        var rootCommand = new RootCommand("Manage Git worktrees from inside an existing repository.");
+        var rootCommand = new RootCommand("Manage Git worktrees and navigate to worktrees from a shared root.");
 
         var o = rootCommand.Options.OfType<VersionOption>().First();
         o.Aliases.Add("-v");
 
         rootCommand.Subcommands.Add(CreateCreateCommand(createHandler));
+        rootCommand.Subcommands.Add(CreateNavigateCommand(navigateHandler));
         rootCommand.Subcommands.Add(CreateListCommand(listHandler));
         rootCommand.Subcommands.Add(CreateRemoveCommand(removeHandler));
         rootCommand.Subcommands.Add(CreateCleanupCommand(cleanupHandler));
@@ -64,6 +66,14 @@ internal static class CommandFactory
                 parseResult.GetValue(fromOriginMainOption));
             return await handler.HandleAsync(branchName, branchBase, ct);
         });
+        return command;
+    }
+
+    private static Command CreateNavigateCommand(NavigateHandler handler)
+    {
+        var command = new Command("navigate", "Select a worktree and open it in Windows Terminal from a repo or shared root.");
+        command.Aliases.Add("n");
+        command.SetAction(async (_, ct) => await handler.HandleAsync(ct));
         return command;
     }
 

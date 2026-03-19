@@ -1,6 +1,6 @@
 # graft
 
-graft is a small Windows CLI for working with Git worktrees from inside an existing repository.
+graft is a small Windows CLI for working with Git worktrees from inside an existing repository and for navigating managed worktrees from a shared root folder.
 
 It creates worktrees under a shared `../.worktrees` folder, opens the new worktree in a Windows Terminal tab, and helps clean up old worktrees.
 
@@ -67,7 +67,8 @@ graft
 
 ## Important behavior
 
-- `graft` only works when run from inside an existing Git repository.
+- `create`, `list`, `remove`, `cleanup`, and `prune` work only when run from inside an existing Git repository.
+- `navigate` also works from the directory that contains the shared `.worktrees` folder.
 - All managed worktrees are created under `../.worktrees` relative to the repo root.
 - Worktree folders use this naming pattern:
 
@@ -107,6 +108,7 @@ Run the smoke validation harness:
 Short command aliases:
 
 - `c` for `create`
+- `n` for `navigate`
 - `l` for `list`
 - `r` for `remove`
 - `x` for `cleanup`
@@ -152,6 +154,24 @@ Example output:
 Created worktree: <parent-of-repo>\.worktrees\LongRepo--feature-my-branch--1a2b3c4d
 Branch: feature/my-branch
 ```
+
+### Navigate
+
+Select a worktree and open it in a new Windows Terminal tab:
+
+```powershell
+graft navigate
+```
+
+Short form:
+
+```powershell
+graft n
+```
+
+You can run this:
+- from inside a Git repository, where it shows that repository's worktrees
+- from the directory that contains `.worktrees`, where it shows direct managed worktree folders under `.worktrees`
 
 ### List
 
@@ -290,5 +310,5 @@ The harness builds `graft`, creates disposable Git repositories, and intentional
 ## Notes
 
 - If `wt.exe` is not available, worktree creation still succeeds and `graft` prints a warning.
-- `graft` does not work outside a Git repository.
+- `navigate` also works from a directory that contains `.worktrees`.
 - `graft` manages only the worktrees for the repository you are currently inside.

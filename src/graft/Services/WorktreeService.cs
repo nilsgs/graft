@@ -93,6 +93,39 @@ internal sealed class WorktreeService
         return new ListWorktreesResult(true, null, ParseWorktrees(repositoryRoot, result.StandardOutput));
     }
 
+    public async Task<ListWorktreesResult> ListManagedFromSharedRootAsync(
+        string sharedRootDirectory,
+        IProgress<string>? progress = null,
+        CancellationToken ct = default)
+    {
+        var managedRoot = Path.Combine(sharedRootDirectory, ".worktrees");
+        progress?.Report("Reading managed worktrees...");
+
+        string[] directories;
+        try
+        {
+            directories = Directory.GetDirectories(managedRoot);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+        {
+            return new ListWorktreesResult(false, $"Could not read managed worktree directory '{managedRoot}': {ex.Message}", null);
+        }
+
+        var worktrees = new List<WorktreeInfo>(directories.Length);
+        foreach (var directory in directories.OrderBy(item => item, StringComparer.OrdinalIgnoreCase))
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var worktree = await TryReadManagedWorktreeAsync(directory, ct);
+            if (worktree is not null)
+            {
+                worktrees.Add(worktree);
+            }
+        }
+
+        return new ListWorktreesResult(true, null, worktrees);
+    }
+
     public async Task<RemoveWorktreeResult> RemoveAsync(
         string repositoryRoot,
         string target,
@@ -219,6 +252,37 @@ internal sealed class WorktreeService
         }
 
         return BranchResolution.NewBranch;
+    }
+
+    private async Task<WorktreeInfo?> TryReadManagedWorktreeAsync(string worktreePath, CancellationToken ct)
+    {
+        var topLevelResult = await _gitService.RunAsync(worktreePath, ct, "rev-parse", "--show-toplevel");
+        if (!topLevelResult.IsSuccess || !PathsEqual(worktreePath, topLevelResult.StandardOutput.Trim()))
+        {
+            return null;
+        }
+
+        var branchResult = await _gitService.RunAsync(worktreePath, ct, "branch", "--show-current");
+        var headResult = await _gitService.RunAsync(worktreePath, ct, "rev-parse", "HEAD");
+
+        var branchName = branchResult.IsSuccess
+            ? branchResult.StandardOutput.Trim()
+            : string.Empty;
+        var isDetached = string.IsNullOrWhiteSpace(branchName);
+        var statuses = isDetached
+            ? new List<string> { "detached" }
+            : new List<string> { "ok" };
+
+        return new WorktreeInfo(
+            worktreePath,
+            isDetached ? "(detached)" : branchName,
+            headResult.IsSuccess ? headResult.StandardOutput.Trim() : string.Empty,
+            false,
+            isDetached,
+            false,
+            false,
+            true,
+            statuses);
     }
 
     private async Task<(bool IsSuccess, string? GitRef, string? DisplayName, string? ErrorMessage)> ResolveCreateBaseAsync(

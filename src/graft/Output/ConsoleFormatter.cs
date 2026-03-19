@@ -73,6 +73,29 @@ internal sealed class ConsoleFormatter
         }
     }
 
+    public WorktreeInfo PromptForNavigation(IReadOnlyList<WorktreeInfo> worktrees)
+    {
+        var orderedWorktrees = worktrees
+            .OrderBy(item => item.Path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (!AnsiConsole.Profile.Capabilities.Ansi)
+        {
+            return PromptForNavigationFallback(orderedWorktrees);
+        }
+
+        var prompt = new SelectionPrompt<WorktreeInfo>()
+            .Title("Select worktree to open")
+            .UseConverter(worktree => $"{GetNavigationBranchLabel(worktree)} | {worktree.Path}")
+            .MoreChoicesText("[grey](Move up and down to reveal more worktrees)[/]");
+
+        prompt.AddChoices(orderedWorktrees);
+        lock (_syncRoot)
+        {
+            return prompt.Show(AnsiConsole.Console);
+        }
+    }
+
     public IReadOnlyList<WorktreeCandidate> PromptForCleanup(IReadOnlyList<WorktreeCandidate> candidates)
     {
         if (candidates.Count == 0)
@@ -106,6 +129,47 @@ internal sealed class ConsoleFormatter
         lock (_syncRoot)
         {
             AnsiConsole.MarkupLine(message);
+        }
+    }
+
+    private static string GetNavigationBranchLabel(WorktreeInfo worktree)
+    {
+        return string.IsNullOrWhiteSpace(worktree.BranchName)
+            ? "(unknown)"
+            : worktree.BranchName;
+    }
+
+    private WorktreeInfo PromptForNavigationFallback(IReadOnlyList<WorktreeInfo> worktrees)
+    {
+        lock (_syncRoot)
+        {
+            Console.WriteLine("Select worktree to open:");
+            for (var index = 0; index < worktrees.Count; index++)
+            {
+                var worktree = worktrees[index];
+                Console.WriteLine($"{index + 1}. {GetNavigationBranchLabel(worktree)} | {worktree.Path}");
+            }
+        }
+
+        while (true)
+        {
+            lock (_syncRoot)
+            {
+                Console.Write($"Select worktree to open [1-{worktrees.Count}]: ");
+            }
+
+            var input = Console.ReadLine();
+            if (input is null)
+            {
+                throw new InvalidOperationException("No interactive input was available to select a worktree.");
+            }
+
+            if (int.TryParse(input, out var selection) && selection >= 1 && selection <= worktrees.Count)
+            {
+                return worktrees[selection - 1];
+            }
+
+            WriteError($"Enter a number between 1 and {worktrees.Count}.");
         }
     }
 

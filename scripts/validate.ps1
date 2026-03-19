@@ -5,6 +5,9 @@ param(
     [switch]$SkipBuild
 )
 
+# Keep this script behaviorally aligned with scripts/validate.sh.
+# When validation scenarios or expectations change, update both scripts together.
+
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 $PSNativeCommandUseErrorActionPreference = $false

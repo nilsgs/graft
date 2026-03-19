@@ -13,7 +13,8 @@ At the beginning of each session:
 1. Read this file and [`README.md`](/C:/Users/niskut/source/repos/tools/graft/README.md).
 2. Check the working tree with `git status --short`.
 3. Assume the repo may already contain user changes. Do not revert unrelated edits.
-4. Work from the repository root in Windows PowerShell unless the task clearly requires something else.
+4. Work from the repository root in the shell that matches the current environment.
+5. Use PowerShell-oriented scripts from PowerShell and Bash-oriented scripts from Bash/WSL/Git Bash.
 
 ## Project Snapshot
 
@@ -42,10 +43,14 @@ Use the repo-local NuGet config when building:
 dotnet build .\src\graft\graft.csproj -nologo --configfile .\NuGet.config
 ```
 
-Use the smoke harness first for behavioral validation:
+Use the smoke harness first for behavioral validation. Pick the script that matches the current shell environment:
 
 ```powershell
 .\scripts\validate.ps1
+```
+
+```bash
+./scripts/validate.sh
 ```
 
 The harness:
@@ -53,6 +58,7 @@ The harness:
 - runs it against disposable Git repositories
 - covers create/list/remove/cleanup/prune flows
 - intentionally runs without `wt.exe`, so that warning is expected during harness runs
+- exists in both `scripts/validate.ps1` and `scripts/validate.sh`; keep them behaviorally aligned when making validation changes
 
 For local installation checks:
 
@@ -65,7 +71,7 @@ graft --version
 There is currently no test project in this repository. If code changes affect behavior, prefer at minimum:
 
 1. Build successfully.
-2. Run `.\scripts\validate.ps1`.
+2. Run `.\scripts\validate.ps1` in PowerShell or `./scripts/validate.sh` in Bash.
 3. Fall back to manual CLI verification only for scenarios the harness does not cover.
 
 ## Editing Guidance

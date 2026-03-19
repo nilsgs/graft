@@ -105,6 +105,12 @@ Run the smoke validation harness:
 .\scripts\validate.ps1
 ```
 
+or from Bash:
+
+```bash
+./scripts/validate.sh
+```
+
 Short command aliases:
 
 - `c` for `create`
@@ -298,6 +304,12 @@ Run the built-in smoke harness after behavioral changes:
 .\scripts\validate.ps1
 ```
 
+or from Bash:
+
+```bash
+./scripts/validate.sh
+```
+
 What it covers:
 - `create` from `HEAD`, `main`, and `origin/main`
 - `list`
@@ -306,6 +318,7 @@ What it covers:
 - `prune`
 
 The harness builds `graft`, creates disposable Git repositories, and intentionally runs without `wt.exe`, so the Windows Terminal warning is expected during validation runs.
+Keep `scripts/validate.ps1` and `scripts/validate.sh` behaviorally aligned when changing validation coverage or expectations.
 
 ## Notes
 

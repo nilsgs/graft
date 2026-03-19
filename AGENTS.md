@@ -56,7 +56,7 @@ Use the smoke harness first for behavioral validation. Pick the script that matc
 The harness:
 - builds the CLI
 - runs it against disposable Git repositories
-- covers create/list/remove/cleanup/prune flows
+- covers create/navigate/list/remove/cleanup/prune flows
 - intentionally runs without `wt.exe`, so that warning is expected during harness runs
 - exists in both `scripts/validate.ps1` and `scripts/validate.sh`; keep them behaviorally aligned when making validation changes
 

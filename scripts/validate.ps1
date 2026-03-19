@@ -66,7 +66,8 @@ function Invoke-Graft {
     param(
         [string]$WorkingDirectory,
         [string[]]$Arguments,
-        [int]$ExpectedExitCode = 0
+        [int]$ExpectedExitCode = 0,
+        [string]$InputText = ""
     )
 
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
@@ -74,6 +75,7 @@ function Invoke-Graft {
     $startInfo.WorkingDirectory = $WorkingDirectory
     $startInfo.RedirectStandardOutput = $true
     $startInfo.RedirectStandardError = $true
+    $startInfo.RedirectStandardInput = $true
     $startInfo.UseShellExecute = $false
     $startInfo.CreateNoWindow = $true
     $allArguments = @($script:assemblyPath) + $Arguments
@@ -89,6 +91,10 @@ function Invoke-Graft {
     $process = [System.Diagnostics.Process]::new()
     $process.StartInfo = $startInfo
     $null = $process.Start()
+    if (-not [string]::IsNullOrEmpty($InputText)) {
+        $process.StandardInput.Write($InputText)
+    }
+    $process.StandardInput.Close()
     $standardOutput = $process.StandardOutput.ReadToEnd().Trim()
     $standardError = $process.StandardError.ReadToEnd().Trim()
     $process.WaitForExit()
@@ -324,6 +330,26 @@ try {
         Invoke-Graft $repo @("prune") | Out-Null
         $worktreeList = Invoke-Git $repo @("worktree", "list", "--porcelain")
         Assert-True (-not $worktreeList.Contains("feature/prune-me")) "Expected prune to remove stale worktree metadata."
+    }
+
+    Invoke-Scenario "navigate works from repo and shared root" {
+        $repo = New-Repository "navigate"
+
+        Invoke-Git $repo @("switch", "--quiet", "-c", "dev") | Out-Null
+        Invoke-Git $repo @("commit", "--quiet", "--allow-empty", "-m", "dev") | Out-Null
+
+        Invoke-Graft $repo @("create", "feature/navigate") | Out-Null
+
+        $navigateFromRepoOutput = Invoke-Graft $repo @("navigate") 0 "1`n"
+        Assert-True ($navigateFromRepoOutput.Contains("wt.exe was not found")) "Expected navigate from repo mode to open the selected worktree."
+
+        $sharedRoot = Split-Path -Parent $repo
+        $managedRoot = Join-Path $sharedRoot ".worktrees"
+        New-Item -ItemType Directory -Path (Join-Path $managedRoot "invalid-entry") | Out-Null
+
+        $navigateFromSharedRootOutput = Invoke-Graft $sharedRoot @("navigate") 0 "1`n"
+        Assert-True ($navigateFromSharedRootOutput.Contains("Reading managed worktrees...")) "Expected navigate shared-root mode to read managed worktrees."
+        Assert-True ($navigateFromSharedRootOutput.Contains("wt.exe was not found")) "Expected navigate shared-root mode to open the selected worktree."
     }
 
     Write-Host ""

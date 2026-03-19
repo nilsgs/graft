@@ -232,6 +232,32 @@ $output"
     printf '%s' "$output"
 }
 
+invoke_graft_with_input() {
+    local working_directory="$1"
+    local expected_exit_code="$2"
+    local input_text="$3"
+    shift 3
+
+    local output
+    local exit_code
+
+    set +e
+    output="$(
+        cd "$working_directory" &&
+        printf '%b' "$input_text" | "$dotnet_exe" "$assembly_path" "$@" 2>&1
+    )"
+    exit_code=$?
+    set -e
+
+    if [[ $exit_code -ne $expected_exit_code ]]; then
+        fail "graft $* exited with $exit_code, expected $expected_exit_code.
+$output"
+        return 1
+    fi
+
+    printf '%s' "$output"
+}
+
 new_repository() {
     local name="$1"
     local path="$scratch_root/$name"
@@ -466,6 +492,43 @@ scenario_prune_removes_stale_worktree_metadata() {
     assert_not_contains "$worktree_list" "feature/prune-me" "Expected prune to remove stale worktree metadata." || return 1
 }
 
+scenario_navigate_works_from_repo_and_shared_root() {
+    local repo
+    local shared_root
+    local managed_root
+    local unreadable_path
+    local navigate_from_repo_output
+    local navigate_from_shared_root_output
+
+    repo="$(new_repository "navigate")" || return 1
+
+    invoke_git "$repo" switch --quiet -c dev >/dev/null || return 1
+    invoke_git "$repo" commit --quiet --allow-empty -m dev >/dev/null || return 1
+
+    invoke_graft "$repo" 0 create feature/navigate >/dev/null || return 1
+
+    navigate_from_repo_output="$(invoke_graft_with_input "$repo" 0 "1\n" navigate)" || return 1
+    assert_contains "$navigate_from_repo_output" "wt.exe was not found" "Expected navigate from repo mode to open the selected worktree." || return 1
+
+    shared_root="$(dirname "$repo")"
+    managed_root="$shared_root/.worktrees"
+    mkdir -p "$managed_root/invalid-entry"
+
+    unreadable_path="$managed_root/unreadable-entry"
+    mkdir -p "$unreadable_path"
+    chmod 000 "$unreadable_path"
+
+    navigate_from_shared_root_output="$(invoke_graft_with_input "$shared_root" 0 "1\n" navigate)" || {
+        chmod 700 "$unreadable_path"
+        return 1
+    }
+
+    chmod 700 "$unreadable_path"
+
+    assert_contains "$navigate_from_shared_root_output" "Reading managed worktrees..." "Expected navigate shared-root mode to read managed worktrees." || return 1
+    assert_contains "$navigate_from_shared_root_output" "wt.exe was not found" "Expected navigate shared-root mode to open the selected worktree." || return 1
+}
+
 append_unique_path_entry() {
     local entry="$1"
     local existing
@@ -545,6 +608,7 @@ run_scenario "create resolves origin/main and validates flag combinations" scena
 run_scenario "list and remove manage created worktrees" scenario_list_and_remove_manage_created_worktrees
 run_scenario "cleanup removes all candidates non-interactively" scenario_cleanup_removes_all_candidates_non_interactively
 run_scenario "prune removes stale worktree metadata" scenario_prune_removes_stale_worktree_metadata
+run_scenario "navigate works from repo and shared root" scenario_navigate_works_from_repo_and_shared_root
 
 printf '\nValidation summary:\n'
 for index in "${!results_names[@]}"; do

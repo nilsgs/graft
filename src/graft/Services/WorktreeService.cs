@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.ComponentModel;
 using Graft.Models;
 using Graft.Output;
 
@@ -256,14 +257,37 @@ internal sealed class WorktreeService
 
     private async Task<WorktreeInfo?> TryReadManagedWorktreeAsync(string worktreePath, CancellationToken ct)
     {
-        var topLevelResult = await _gitService.RunAsync(worktreePath, ct, "rev-parse", "--show-toplevel");
+        if (!Directory.Exists(worktreePath) || !CanInspectDirectory(worktreePath))
+        {
+            return null;
+        }
+
+        CommandResult topLevelResult;
+        try
+        {
+            topLevelResult = await _gitService.RunAsync(worktreePath, ct, "rev-parse", "--show-toplevel");
+        }
+        catch (Win32Exception ex) when (IsAccessDenied(ex))
+        {
+            return null;
+        }
+
         if (!topLevelResult.IsSuccess || !PathsEqual(worktreePath, topLevelResult.StandardOutput.Trim()))
         {
             return null;
         }
 
-        var branchResult = await _gitService.RunAsync(worktreePath, ct, "branch", "--show-current");
-        var headResult = await _gitService.RunAsync(worktreePath, ct, "rev-parse", "HEAD");
+        CommandResult branchResult;
+        CommandResult headResult;
+        try
+        {
+            branchResult = await _gitService.RunAsync(worktreePath, ct, "branch", "--show-current");
+            headResult = await _gitService.RunAsync(worktreePath, ct, "rev-parse", "HEAD");
+        }
+        catch (Win32Exception ex) when (IsAccessDenied(ex))
+        {
+            return null;
+        }
 
         var branchName = branchResult.IsSuccess
             ? branchResult.StandardOutput.Trim()
@@ -515,6 +539,25 @@ internal sealed class WorktreeService
     {
         return Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar)
             .Equals(Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool CanInspectDirectory(string path)
+    {
+        try
+        {
+            using var entries = Directory.EnumerateFileSystemEntries(path).GetEnumerator();
+            _ = entries.MoveNext();
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsAccessDenied(Win32Exception ex)
+    {
+        return ex.NativeErrorCode is 5 or 13;
     }
 
     private static WorktreeInfo CreateWorktreeInfo(string targetPath, string branchName)

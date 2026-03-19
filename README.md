@@ -312,6 +312,7 @@ or from Bash:
 
 What it covers:
 - `create` from `HEAD`, `main`, and `origin/main`
+- `navigate` from both repository mode and shared-root mode
 - `list`
 - `remove`
 - `cleanup --all --yes`

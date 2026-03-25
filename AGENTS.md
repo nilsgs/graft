@@ -10,7 +10,7 @@ These instructions apply to the whole repository.
 
 At the beginning of each session:
 
-1. Read this file and [`README.md`](/C:/Users/niskut/source/repos/tools/graft/README.md).
+1. Read this file and [`README.md`](README.md).
 2. Check the working tree with `git status --short`.
 3. Assume the repo may already contain user changes. Do not revert unrelated edits.
 4. Work from the repository root in the shell that matches the current environment.
@@ -19,19 +19,19 @@ At the beginning of each session:
 ## Project Snapshot
 
 - `graft` is a Windows-only CLI for managing Git worktrees.
-- The app targets `.NET 10` via [`src/graft/graft.csproj`](/C:/Users/niskut/source/repos/tools/graft/src/graft/graft.csproj).
+- The app targets `.NET 10` via [`src/graft/graft.csproj`](src/graft/graft.csproj).
 - Main dependencies are `System.CommandLine` and `Spectre.Console`.
 - Managed worktrees live under `../.worktrees` relative to the current repository root.
 - `graft` expects both `git` and `wt.exe` to be available on `PATH`.
 
 ## Architecture
 
-- Entry point: [`src/graft/Program.cs`](/C:/Users/niskut/source/repos/tools/graft/src/graft/Program.cs)
-- Command registration: [`src/graft/Commands/CommandFactory.cs`](/C:/Users/niskut/source/repos/tools/graft/src/graft/Commands/CommandFactory.cs)
+- Entry point: [`src/graft/Program.cs`](src/graft/Program.cs)
+- Command registration: [`src/graft/Commands/CommandFactory.cs`](src/graft/Commands/CommandFactory.cs)
 - Command behavior lives in `Handlers/`.
 - Git, terminal, repository, and worktree operations live in `Services/`.
 - Data transfer/result types live in `Models/`.
-- Console rendering and prompts live in [`src/graft/Output/ConsoleFormatter.cs`](/C:/Users/niskut/source/repos/tools/graft/src/graft/Output/ConsoleFormatter.cs).
+- Console rendering and prompts live in [`src/graft/Output/ConsoleFormatter.cs`](src/graft/Output/ConsoleFormatter.cs).
 
 Keep new code aligned with the existing split: command parsing in commands, orchestration in handlers/services, and plain result types in models.
 
@@ -80,7 +80,7 @@ There is currently no test project in this repository. If code changes affect be
 - Preserve the current simple composition style in `Program.cs`; do not introduce a DI container unless the task justifies it.
 - Keep Windows-specific behavior explicit. Do not make cross-platform assumptions unless the user asks for them.
 - Prefer small, local changes over broad refactors.
-- When changing CLI behavior, update [`README.md`](/C:/Users/niskut/source/repos/tools/graft/README.md) if usage or output expectations change.
+- When changing CLI behavior, update [`README.md`](README.md) if usage or output expectations change.
 
 ## Safety Notes
 

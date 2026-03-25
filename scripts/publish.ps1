@@ -13,9 +13,9 @@ $installDir = Join-Path $env:USERPROFILE "bin"
 $installPath = Join-Path $installDir "graft.exe"
 
 if (-not $RuntimeIdentifier) {
-    $RuntimeIdentifier = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
-        ([System.Runtime.InteropServices.Architecture]::Arm64) { "win-arm64" }
-        default { "win-x64" }
+    $RuntimeIdentifier = switch ($env:PROCESSOR_ARCHITECTURE) {
+        "ARM64"  { "win-arm64" }
+        default  { "win-x64" }
     }
 }
 

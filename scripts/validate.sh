@@ -332,10 +332,22 @@ get_worktree_path() {
     printf '%s' "$path"
 }
 
-get_branch_hash() {
+get_hash_prefix() {
     local value="$1"
+    local hex_length="$2"
 
-    printf '%s' "$value" | sha256sum | cut -c1-8
+    printf '%s' "$value" | sha256sum | cut -c1-"$hex_length"
+}
+
+get_expected_managed_folder_name() {
+    local repository_name="$1"
+    local branch_name="$2"
+    local repo_hash
+    local branch_hash
+
+    repo_hash="$(get_hash_prefix "$repository_name" 8)"
+    branch_hash="$(get_hash_prefix "$branch_name" 8)"
+    printf '%s%s' "$repo_hash" "$branch_hash"
 }
 
 run_scenario() {
@@ -427,15 +439,17 @@ scenario_create_resolves_origin_main_and_validates_flag_combinations() {
     assert_contains "$normalized_parse_failure_output" "--from-local-main and --from-origin-main cannot be used together." "Expected mutual exclusion validation for create flags." || return 1
 }
 
-scenario_create_truncates_overlong_managed_worktree_folder_names() {
+scenario_create_uses_short_fixed_length_managed_worktree_folder_names() {
+    local repo_name
     local repo
     local branch_name
     local worktree_path
     local directory_name
-    local expected_hash
+    local expected_directory_name
     local list_output
 
-    repo="$(new_repository "long-path")" || return 1
+    repo_name="This.Is.A.LongRepo"
+    repo="$(new_repository "$repo_name")" || return 1
 
     invoke_git "$repo" switch --quiet -c dev >/dev/null || return 1
     invoke_git "$repo" commit --quiet --allow-empty -m dev >/dev/null || return 1
@@ -445,18 +459,47 @@ scenario_create_truncates_overlong_managed_worktree_folder_names() {
 
     worktree_path="$(get_worktree_path "$repo" "$branch_name")" || return 1
     directory_name="$(basename "$worktree_path")"
-    expected_hash="$(get_branch_hash "$branch_name")"
+    expected_directory_name="$(get_expected_managed_folder_name "$repo_name" "$branch_name")"
 
-    assert_true "$(( ${#worktree_path} <= 140 ? 0 : 1 ))" "Expected truncated worktree path to stay within the safety budget." || return 1
-    assert_true "$([[ "$directory_name" == long-path--* ]]; printf '%s' "$?")" "Expected the managed worktree directory to keep the repo token prefix." || return 1
-    assert_true "$([[ "$directory_name" == *--"$expected_hash" ]]; printf '%s' "$?")" "Expected the managed worktree directory to keep the branch hash suffix." || return 1
+    assert_true "$([[ "$directory_name" == "$expected_directory_name" ]]; printf '%s' "$?")" "Expected the managed worktree directory name to use the short hash-based format." || return 1
+    assert_true "$(( ${#directory_name} == ${#expected_directory_name} ? 0 : 1 ))" "Expected the managed worktree directory name to stay fixed-length." || return 1
 
     list_output="$(invoke_graft "$repo" 0 list)" || return 1
     list_output="$(printf '%s' "$list_output" | tr -d '[:space:]')"
-    assert_contains "$list_output" "$branch_name" "Expected list output to preserve the full branch name after truncation." || return 1
+    assert_contains "$list_output" "$branch_name" "Expected list output to preserve the full branch name with fixed-length folder names." || return 1
 
     invoke_graft "$repo" 0 remove "$branch_name" >/dev/null || return 1
-    assert_path_missing "$worktree_path" "Expected remove to delete a worktree created with a truncated folder name." || return 1
+    assert_path_missing "$worktree_path" "Expected remove to delete a worktree created with a fixed-length folder name." || return 1
+}
+
+scenario_create_leaves_room_for_deep_paths_inside_the_worktree() {
+    local repo
+    local relative_path
+    local source_file_path
+    local branch_name
+    local worktree_path
+    local worktree_file_path
+
+    repo="$(new_repository "deep-path")" || return 1
+
+    relative_path="segment-01-padding/segment-02-padding/segment-03-padding/segment-04-padding/segment-05-padding/segment-06-padding/segment-07-padding/deep-file.txt"
+    source_file_path="$repo/$relative_path"
+    mkdir -p "$(dirname "$source_file_path")"
+    printf 'deep\n' > "$source_file_path"
+    invoke_git "$repo" add . >/dev/null || return 1
+    invoke_git "$repo" commit --quiet -m "add deep file" >/dev/null || return 1
+
+    invoke_git "$repo" switch --quiet -c dev >/dev/null || return 1
+    invoke_git "$repo" commit --quiet --allow-empty -m dev >/dev/null || return 1
+
+    branch_name="feature/deep-deep-deep-deep-deep-deep-deep-deep-deep-deep-deep-deep"
+    invoke_graft "$repo" 0 create "$branch_name" >/dev/null || return 1
+
+    worktree_path="$(get_worktree_path "$repo" "$branch_name")" || return 1
+    worktree_file_path="$worktree_path/$relative_path"
+
+    assert_true "$([[ -f "$worktree_file_path" ]]; printf '%s' "$?")" "Expected create to populate deep tracked files inside the new worktree." || return 1
+    assert_true "$(( ${#worktree_file_path} < 260 ? 0 : 1 ))" "Expected the fixed-length worktree path to leave room for a deep tracked file path." || return 1
 }
 
 scenario_list_and_remove_manage_created_worktrees() {
@@ -643,7 +686,8 @@ export PATH
 
 run_scenario "create uses HEAD by default and main when requested" scenario_create_uses_head_by_default_and_main_when_requested
 run_scenario "create resolves origin/main and validates flag combinations" scenario_create_resolves_origin_main_and_validates_flag_combinations
-run_scenario "create truncates overlong managed worktree folder names" scenario_create_truncates_overlong_managed_worktree_folder_names
+run_scenario "create uses short fixed-length managed worktree folder names" scenario_create_uses_short_fixed_length_managed_worktree_folder_names
+run_scenario "create leaves room for deep paths inside the worktree" scenario_create_leaves_room_for_deep_paths_inside_the_worktree
 run_scenario "list and remove manage created worktrees" scenario_list_and_remove_manage_created_worktrees
 run_scenario "cleanup removes all candidates non-interactively" scenario_cleanup_removes_all_candidates_non_interactively
 run_scenario "prune removes stale worktree metadata" scenario_prune_removes_stale_worktree_metadata

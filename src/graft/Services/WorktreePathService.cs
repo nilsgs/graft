@@ -5,8 +5,8 @@ namespace Graft.Services;
 
 internal sealed class WorktreePathService
 {
-    private const int MaxManagedWorktreePathLength = 140;
-    private const int MinimumBranchSlugLength = 1;
+    private const int RepoHashLength = 8;
+    private const int BranchHashLength = 8;
 
     public string GetManagedRoot(string repositoryRoot)
     {
@@ -20,15 +20,10 @@ internal sealed class WorktreePathService
     {
         var managedRoot = GetManagedRoot(repositoryRoot);
         var repoName = new DirectoryInfo(repositoryRoot).Name;
-        var repoToken = GetRepositoryToken(repoName);
-        var branchSlug = GetBranchSlug(branchName);
-        var hash = GetHash(branchName);
-        var maxBranchSlugLength = GetMaxBranchSlugLength(managedRoot, repoToken, hash);
-        var truncatedBranchSlug = branchSlug.Length <= maxBranchSlugLength
-            ? branchSlug
-            : branchSlug[..maxBranchSlugLength];
+        var repoHash = GetHash(repoName, RepoHashLength);
+        var branchHash = GetHash(branchName, BranchHashLength);
 
-        return Path.Combine(managedRoot, BuildFolderName(repoToken, truncatedBranchSlug, hash));
+        return Path.Combine(managedRoot, BuildFolderName(repoHash, branchHash));
     }
 
     public bool IsManagedPath(string repositoryRoot, string path)
@@ -38,76 +33,15 @@ internal sealed class WorktreePathService
         return candidate.StartsWith(managedRoot, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string GetRepositoryToken(string repositoryName)
+    private static string BuildFolderName(string repoHash, string branchHash)
     {
-        var parts = repositoryName.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        return parts.Length == 0 ? repositoryName : parts[^1];
+        return $"{repoHash}{branchHash}";
     }
 
-    private static string BuildFolderName(string repoToken, string branchSlug, string hash)
-    {
-        return $"{repoToken}--{branchSlug}--{hash}";
-    }
-
-    private static string GetBranchSlug(string branchName)
-    {
-        var invalid = Path.GetInvalidFileNameChars().Append('/').Append('\\').ToHashSet();
-        var builder = new StringBuilder(branchName.Length);
-        var previousDash = false;
-
-        foreach (var character in branchName)
-        {
-            if (invalid.Contains(character) || char.IsWhiteSpace(character))
-            {
-                if (!previousDash)
-                {
-                    builder.Append('-');
-                    previousDash = true;
-                }
-
-                continue;
-            }
-
-            if (character == '-')
-            {
-                if (previousDash)
-                {
-                    continue;
-                }
-
-                builder.Append(character);
-                previousDash = true;
-                continue;
-            }
-
-            builder.Append(character);
-            previousDash = false;
-        }
-
-        var slug = builder.ToString().Trim('-');
-        return string.IsNullOrWhiteSpace(slug) ? "branch" : slug;
-    }
-
-    private static string GetHash(string value)
+    private static string GetHash(string value, int hexLength)
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(value));
-        return Convert.ToHexStringLower(bytes[..4]);
-    }
-
-    private static int GetMaxBranchSlugLength(string managedRoot, string repoToken, string hash)
-    {
-        var managedRootPrefixLength = EnsureTrailingSeparator(Path.GetFullPath(managedRoot)).Length;
-        var availableFolderNameLength = MaxManagedWorktreePathLength - managedRootPrefixLength;
-        var fixedFolderNameLength = BuildFolderName(repoToken, string.Empty, hash).Length;
-        var maxBranchSlugLength = availableFolderNameLength - fixedFolderNameLength;
-
-        if (maxBranchSlugLength < MinimumBranchSlugLength)
-        {
-            throw new InvalidOperationException(
-                $"Managed worktree root '{managedRoot}' is too deep to create a safe path within {MaxManagedWorktreePathLength} characters.");
-        }
-
-        return maxBranchSlugLength;
+        return Convert.ToHexStringLower(bytes)[..hexLength];
     }
 
     private static string EnsureTrailingSeparator(string path)

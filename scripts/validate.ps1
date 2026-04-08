@@ -176,18 +176,32 @@ function Get-WorktreePath {
     throw "Could not find worktree path for branch '$BranchName'."
 }
 
-function Get-BranchHash {
-    param([string]$Value)
+function Get-HashPrefix {
+    param(
+        [string]$Value,
+        [int]$HexLength
+    )
 
     $sha = [System.Security.Cryptography.SHA256]::Create()
 
     try {
         $bytes = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Value))
-        return ([System.BitConverter]::ToString($bytes).Replace("-", "").Substring(0, 8).ToLowerInvariant())
+        return ([System.BitConverter]::ToString($bytes).Replace("-", "").Substring(0, $HexLength).ToLowerInvariant())
     }
     finally {
         $sha.Dispose()
     }
+}
+
+function Get-ExpectedManagedFolderName {
+    param(
+        [string]$RepositoryName,
+        [string]$BranchName
+    )
+
+    $repoHash = Get-HashPrefix $RepositoryName 8
+    $branchHash = Get-HashPrefix $BranchName 8
+    return "$repoHash$branchHash"
 }
 
 function Invoke-Scenario {
@@ -288,8 +302,9 @@ try {
         Assert-True ($normalizedParseFailureOutput.Contains("--from-local-main and --from-origin-main cannot be used together.")) "Expected mutual exclusion validation for create flags."
     }
 
-    Invoke-Scenario "create truncates overlong managed worktree folder names" {
-        $repo = New-Repository "long-path"
+    Invoke-Scenario "create uses short fixed-length managed worktree folder names" {
+        $repoName = "This.Is.A.LongRepo"
+        $repo = New-Repository $repoName
 
         Invoke-Git $repo @("switch", "--quiet", "-c", "dev") | Out-Null
         Invoke-Git $repo @("commit", "--quiet", "--allow-empty", "-m", "dev") | Out-Null
@@ -299,18 +314,50 @@ try {
 
         $worktreePath = Get-WorktreePath $repo $branchName
         $directoryName = Split-Path $worktreePath -Leaf
-        $expectedHash = Get-BranchHash $branchName
+        $expectedDirectoryName = Get-ExpectedManagedFolderName $repoName $branchName
 
-        Assert-True ($worktreePath.Length -le 140) "Expected truncated worktree path to stay within the safety budget."
-        Assert-True ($directoryName.StartsWith("long-path--", [System.StringComparison]::Ordinal)) "Expected the managed worktree directory to keep the repo token prefix."
-        Assert-True ($directoryName.EndsWith("--$expectedHash", [System.StringComparison]::Ordinal)) "Expected the managed worktree directory to keep the branch hash suffix."
+        Assert-True ($directoryName -eq $expectedDirectoryName) "Expected the managed worktree directory name to use the short hash-based format."
+        Assert-True ($directoryName.Length -eq $expectedDirectoryName.Length) "Expected the managed worktree directory name to stay fixed-length."
 
         $listOutput = Invoke-Graft $repo @("list")
         $normalizedListOutput = $listOutput -replace '\s+', ''
-        Assert-True ($normalizedListOutput.Contains($branchName)) "Expected list output to preserve the full branch name after truncation."
+        Assert-True ($normalizedListOutput.Contains($branchName)) "Expected list output to preserve the full branch name with fixed-length folder names."
 
         Invoke-Graft $repo @("remove", $branchName) | Out-Null
-        Assert-True (-not (Test-Path $worktreePath)) "Expected remove to delete a worktree created with a truncated folder name."
+        Assert-True (-not (Test-Path $worktreePath)) "Expected remove to delete a worktree created with a fixed-length folder name."
+    }
+
+    Invoke-Scenario "create leaves room for deep paths inside the worktree" {
+        $repo = New-Repository "deep-path"
+
+        $relativePathParts = @(
+            "segment-01-padding"
+            "segment-02-padding"
+            "segment-03-padding"
+            "segment-04-padding"
+            "segment-05-padding"
+            "segment-06-padding"
+            "segment-07-padding"
+            "deep-file.txt"
+        )
+        $relativePath = $relativePathParts -join [System.IO.Path]::DirectorySeparatorChar
+        $sourceFilePath = Join-Path $repo $relativePath
+        New-Item -ItemType Directory -Path (Split-Path -Parent $sourceFilePath) -Force | Out-Null
+        Set-Content -Path $sourceFilePath -Value "deep"
+        Invoke-Git $repo @("add", ".") | Out-Null
+        Invoke-Git $repo @("commit", "--quiet", "-m", "add deep file") | Out-Null
+
+        Invoke-Git $repo @("switch", "--quiet", "-c", "dev") | Out-Null
+        Invoke-Git $repo @("commit", "--quiet", "--allow-empty", "-m", "dev") | Out-Null
+
+        $branchName = "feature/" + (("deep-" * 12).TrimEnd('-'))
+        Invoke-Graft $repo @("create", $branchName) | Out-Null
+
+        $worktreePath = Get-WorktreePath $repo $branchName
+        $worktreeFilePath = Join-Path $worktreePath $relativePath
+
+        Assert-True (Test-Path $worktreeFilePath) "Expected create to populate deep tracked files inside the new worktree."
+        Assert-True ($worktreeFilePath.Length -lt 260) "Expected the fixed-length worktree path to leave room for a deep tracked file path."
     }
 
     Invoke-Scenario "list and remove manage created worktrees" {

@@ -73,12 +73,12 @@ graft
 - Worktree folders use this naming pattern:
 
 ```text
-../.worktrees/{repo-token}--{branch-slug}--{hash8}
+../.worktrees/{repo-hash8}{branch-hash8}
 ```
 
-- `repo-token` is the last segment of the repo folder name split on `.`.
-  - Example: `This.Is.A.LongRepo` becomes `LongRepo`
-- `branch-slug` may be truncated when needed to keep the managed worktree path within a safer Windows length budget.
+- `repo-hash8` is the first 8 lowercase hex characters of the SHA-256 hash of the full repo folder name.
+- `branch-hash8` is the first 8 lowercase hex characters of the SHA-256 hash of the full branch name.
+- Managed worktree folder names stay fixed-length to leave more room for long paths inside the repository.
 - If the branch already exists locally, `graft` uses it.
 - If the branch exists only as `origin/<branch>`, `graft` creates a local tracking branch.
 - If the branch does not exist, `graft` creates it from the current `HEAD`.
@@ -152,13 +152,13 @@ Behavior:
 - creates or reuses the branch as needed
 - supports `--from-local-main` / `-l` for new branches from `main`
 - supports `--from-origin-main` / `-o` for new branches from `origin/main`
-- creates the worktree folder, truncating the branch-derived folder segment if needed to stay within a safer Windows path budget
+- creates the worktree folder using a fixed-length deterministic name to leave more headroom for long paths inside the repository
 - opens a new Windows Terminal tab in that folder
 
 Example output:
 
 ```text
-Created worktree: <parent-of-repo>\.worktrees\LongRepo--feature-my-branch--1a2b3c4d
+Created worktree: <parent-of-repo>\.worktrees\1a2b3c4d5e6f7a8b
 Branch: feature/my-branch
 ```
 
@@ -217,7 +217,7 @@ graft r feature/my-branch
 or:
 
 ```powershell
-graft remove ..\.worktrees\LongRepo--feature-my-branch--1a2b3c4d
+graft remove ..\.worktrees\1a2b3c4d5e6f7a8b
 ```
 
 Force removal for dirty or locked worktrees:

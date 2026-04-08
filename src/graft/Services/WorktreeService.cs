@@ -27,8 +27,17 @@ internal sealed class WorktreeService
     {
         progress?.Report($"Preparing managed worktree for '{branchName}'...");
 
-        var targetPath = _worktreePathService.GetManagedWorktreePath(repositoryRoot, branchName);
         var managedRoot = _worktreePathService.GetManagedRoot(repositoryRoot);
+        string targetPath;
+
+        try
+        {
+            targetPath = _worktreePathService.GetManagedWorktreePath(repositoryRoot, branchName);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return new CreateWorktreeResult(false, ex.Message, null, null);
+        }
 
         try
         {

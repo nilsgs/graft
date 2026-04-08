@@ -78,6 +78,7 @@ graft
 
 - `repo-token` is the last segment of the repo folder name split on `.`.
   - Example: `This.Is.A.LongRepo` becomes `LongRepo`
+- `branch-slug` may be truncated when needed to keep the managed worktree path within a safer Windows length budget.
 - If the branch already exists locally, `graft` uses it.
 - If the branch exists only as `origin/<branch>`, `graft` creates a local tracking branch.
 - If the branch does not exist, `graft` creates it from the current `HEAD`.
@@ -151,7 +152,7 @@ Behavior:
 - creates or reuses the branch as needed
 - supports `--from-local-main` / `-l` for new branches from `main`
 - supports `--from-origin-main` / `-o` for new branches from `origin/main`
-- creates the worktree folder
+- creates the worktree folder, truncating the branch-derived folder segment if needed to stay within a safer Windows path budget
 - opens a new Windows Terminal tab in that folder
 
 Example output:

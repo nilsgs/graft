@@ -5,6 +5,9 @@ namespace Graft.Services;
 
 internal sealed class WorktreePathService
 {
+    private const int MaxManagedWorktreePathLength = 140;
+    private const int MinimumBranchSlugLength = 1;
+
     public string GetManagedRoot(string repositoryRoot)
     {
         var repositoryParent = Directory.GetParent(repositoryRoot)
@@ -15,11 +18,17 @@ internal sealed class WorktreePathService
 
     public string GetManagedWorktreePath(string repositoryRoot, string branchName)
     {
+        var managedRoot = GetManagedRoot(repositoryRoot);
         var repoName = new DirectoryInfo(repositoryRoot).Name;
         var repoToken = GetRepositoryToken(repoName);
         var branchSlug = GetBranchSlug(branchName);
         var hash = GetHash(branchName);
-        return Path.Combine(GetManagedRoot(repositoryRoot), $"{repoToken}--{branchSlug}--{hash}");
+        var maxBranchSlugLength = GetMaxBranchSlugLength(managedRoot, repoToken, hash);
+        var truncatedBranchSlug = branchSlug.Length <= maxBranchSlugLength
+            ? branchSlug
+            : branchSlug[..maxBranchSlugLength];
+
+        return Path.Combine(managedRoot, BuildFolderName(repoToken, truncatedBranchSlug, hash));
     }
 
     public bool IsManagedPath(string repositoryRoot, string path)
@@ -33,6 +42,11 @@ internal sealed class WorktreePathService
     {
         var parts = repositoryName.Split('.', StringSplitOptions.RemoveEmptyEntries);
         return parts.Length == 0 ? repositoryName : parts[^1];
+    }
+
+    private static string BuildFolderName(string repoToken, string branchSlug, string hash)
+    {
+        return $"{repoToken}--{branchSlug}--{hash}";
     }
 
     private static string GetBranchSlug(string branchName)
@@ -78,6 +92,22 @@ internal sealed class WorktreePathService
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(value));
         return Convert.ToHexStringLower(bytes[..4]);
+    }
+
+    private static int GetMaxBranchSlugLength(string managedRoot, string repoToken, string hash)
+    {
+        var managedRootPrefixLength = EnsureTrailingSeparator(Path.GetFullPath(managedRoot)).Length;
+        var availableFolderNameLength = MaxManagedWorktreePathLength - managedRootPrefixLength;
+        var fixedFolderNameLength = BuildFolderName(repoToken, string.Empty, hash).Length;
+        var maxBranchSlugLength = availableFolderNameLength - fixedFolderNameLength;
+
+        if (maxBranchSlugLength < MinimumBranchSlugLength)
+        {
+            throw new InvalidOperationException(
+                $"Managed worktree root '{managedRoot}' is too deep to create a safe path within {MaxManagedWorktreePathLength} characters.");
+        }
+
+        return maxBranchSlugLength;
     }
 
     private static string EnsureTrailingSeparator(string path)

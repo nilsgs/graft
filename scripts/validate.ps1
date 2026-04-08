@@ -176,6 +176,20 @@ function Get-WorktreePath {
     throw "Could not find worktree path for branch '$BranchName'."
 }
 
+function Get-BranchHash {
+    param([string]$Value)
+
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+
+    try {
+        $bytes = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Value))
+        return ([System.BitConverter]::ToString($bytes).Replace("-", "").Substring(0, 8).ToLowerInvariant())
+    }
+    finally {
+        $sha.Dispose()
+    }
+}
+
 function Invoke-Scenario {
     param(
         [string]$Name,
@@ -272,6 +286,31 @@ try {
         $parseFailureOutput = Invoke-Graft $repo @("create", "feature/invalid", "-l", "-o") 1
         $normalizedParseFailureOutput = $parseFailureOutput -replace '\s+', ' '
         Assert-True ($normalizedParseFailureOutput.Contains("--from-local-main and --from-origin-main cannot be used together.")) "Expected mutual exclusion validation for create flags."
+    }
+
+    Invoke-Scenario "create truncates overlong managed worktree folder names" {
+        $repo = New-Repository "long-path"
+
+        Invoke-Git $repo @("switch", "--quiet", "-c", "dev") | Out-Null
+        Invoke-Git $repo @("commit", "--quiet", "--allow-empty", "-m", "dev") | Out-Null
+
+        $branchName = "feature/" + (("segment-" * 10).TrimEnd('-'))
+        Invoke-Graft $repo @("create", $branchName) | Out-Null
+
+        $worktreePath = Get-WorktreePath $repo $branchName
+        $directoryName = Split-Path $worktreePath -Leaf
+        $expectedHash = Get-BranchHash $branchName
+
+        Assert-True ($worktreePath.Length -le 140) "Expected truncated worktree path to stay within the safety budget."
+        Assert-True ($directoryName.StartsWith("long-path--", [System.StringComparison]::Ordinal)) "Expected the managed worktree directory to keep the repo token prefix."
+        Assert-True ($directoryName.EndsWith("--$expectedHash", [System.StringComparison]::Ordinal)) "Expected the managed worktree directory to keep the branch hash suffix."
+
+        $listOutput = Invoke-Graft $repo @("list")
+        $normalizedListOutput = $listOutput -replace '\s+', ''
+        Assert-True ($normalizedListOutput.Contains($branchName)) "Expected list output to preserve the full branch name after truncation."
+
+        Invoke-Graft $repo @("remove", $branchName) | Out-Null
+        Assert-True (-not (Test-Path $worktreePath)) "Expected remove to delete a worktree created with a truncated folder name."
     }
 
     Invoke-Scenario "list and remove manage created worktrees" {

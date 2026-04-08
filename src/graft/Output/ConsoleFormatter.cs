@@ -52,6 +52,12 @@ internal sealed class ConsoleFormatter
             return;
         }
 
+        if (!AnsiConsole.Profile.Capabilities.Ansi)
+        {
+            WriteWorktreesFallback(worktrees);
+            return;
+        }
+
         var table = new Table();
         table.AddColumn("Branch");
         table.AddColumn("Path");
@@ -70,6 +76,19 @@ internal sealed class ConsoleFormatter
         lock (_syncRoot)
         {
             AnsiConsole.Write(table);
+        }
+    }
+
+    private void WriteWorktreesFallback(IReadOnlyList<WorktreeInfo> worktrees)
+    {
+        lock (_syncRoot)
+        {
+            Console.WriteLine("Branch | Path | Managed | Status");
+            foreach (var worktree in worktrees.OrderBy(item => item.Path, StringComparer.OrdinalIgnoreCase))
+            {
+                Console.WriteLine(
+                    $"{GetNavigationBranchLabel(worktree)} | {worktree.Path} | {(worktree.IsManaged ? "yes" : "no")} | {string.Join(", ", worktree.Statuses)}");
+            }
         }
     }
 

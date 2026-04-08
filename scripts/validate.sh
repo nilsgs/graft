@@ -332,6 +332,12 @@ get_worktree_path() {
     printf '%s' "$path"
 }
 
+get_branch_hash() {
+    local value="$1"
+
+    printf '%s' "$value" | sha256sum | cut -c1-8
+}
+
 run_scenario() {
     local name="$1"
     local function_name="$2"
@@ -419,6 +425,38 @@ scenario_create_resolves_origin_main_and_validates_flag_combinations() {
     parse_failure_output="$(invoke_graft "$repo" 1 create feature/invalid -l -o)" || return 1
     normalized_parse_failure_output="$(normalize_whitespace "$parse_failure_output")"
     assert_contains "$normalized_parse_failure_output" "--from-local-main and --from-origin-main cannot be used together." "Expected mutual exclusion validation for create flags." || return 1
+}
+
+scenario_create_truncates_overlong_managed_worktree_folder_names() {
+    local repo
+    local branch_name
+    local worktree_path
+    local directory_name
+    local expected_hash
+    local list_output
+
+    repo="$(new_repository "long-path")" || return 1
+
+    invoke_git "$repo" switch --quiet -c dev >/dev/null || return 1
+    invoke_git "$repo" commit --quiet --allow-empty -m dev >/dev/null || return 1
+
+    branch_name="feature/segment-segment-segment-segment-segment-segment-segment-segment-segment-segment"
+    invoke_graft "$repo" 0 create "$branch_name" >/dev/null || return 1
+
+    worktree_path="$(get_worktree_path "$repo" "$branch_name")" || return 1
+    directory_name="$(basename "$worktree_path")"
+    expected_hash="$(get_branch_hash "$branch_name")"
+
+    assert_true "$(( ${#worktree_path} <= 140 ? 0 : 1 ))" "Expected truncated worktree path to stay within the safety budget." || return 1
+    assert_true "$([[ "$directory_name" == long-path--* ]]; printf '%s' "$?")" "Expected the managed worktree directory to keep the repo token prefix." || return 1
+    assert_true "$([[ "$directory_name" == *--"$expected_hash" ]]; printf '%s' "$?")" "Expected the managed worktree directory to keep the branch hash suffix." || return 1
+
+    list_output="$(invoke_graft "$repo" 0 list)" || return 1
+    list_output="$(printf '%s' "$list_output" | tr -d '[:space:]')"
+    assert_contains "$list_output" "$branch_name" "Expected list output to preserve the full branch name after truncation." || return 1
+
+    invoke_graft "$repo" 0 remove "$branch_name" >/dev/null || return 1
+    assert_path_missing "$worktree_path" "Expected remove to delete a worktree created with a truncated folder name." || return 1
 }
 
 scenario_list_and_remove_manage_created_worktrees() {
@@ -605,6 +643,7 @@ export PATH
 
 run_scenario "create uses HEAD by default and main when requested" scenario_create_uses_head_by_default_and_main_when_requested
 run_scenario "create resolves origin/main and validates flag combinations" scenario_create_resolves_origin_main_and_validates_flag_combinations
+run_scenario "create truncates overlong managed worktree folder names" scenario_create_truncates_overlong_managed_worktree_folder_names
 run_scenario "list and remove manage created worktrees" scenario_list_and_remove_manage_created_worktrees
 run_scenario "cleanup removes all candidates non-interactively" scenario_cleanup_removes_all_candidates_non_interactively
 run_scenario "prune removes stale worktree metadata" scenario_prune_removes_stale_worktree_metadata

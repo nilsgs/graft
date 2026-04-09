@@ -1,0 +1,9 @@
+{
+  "version": "0.5.1",
+  "skills": [],
+  "dependencies": [
+    {
+      "name": "smoko"
+    }
+  ]
+}

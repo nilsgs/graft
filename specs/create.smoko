@@ -1,0 +1,61 @@
+Feature: graft create
+  `graft create` resolves the branch base, creates managed worktrees, and
+  supports test-friendly non-terminal execution.
+
+  Scenario: default create uses the current HEAD and warns when wt.exe is unavailable
+    Given I run "sh -c 'graft-test init-repo repo && cd repo && git switch --quiet -c dev && printf dev > dev-only.txt && git add dev-only.txt && git commit --quiet -m dev'"
+    When I run "sh -c 'cd repo && graft create feature/default-head > ../default-head-output.txt 2>&1; status=$?; path=$(graft-test worktree-path . feature/default-head); if [ -f ${path}/dev-only.txt ]; then printf yes > ../default-head-dev.txt; else printf no > ../default-head-dev.txt; fi; cat ../default-head-output.txt; exit $status'"
+    Then exit code is 0
+    Then output contains "wt.exe was not found"
+    Then file "default-head-dev.txt" contains "yes"
+
+  Scenario: from-local-main creates from main and skips terminal launch when requested
+    Given I run "sh -c 'graft-test init-repo repo && cd repo && printf main > main-only.txt && git add main-only.txt && git commit --quiet -m main-only && git switch --quiet -c dev && printf dev > dev-only.txt && git add dev-only.txt && git commit --quiet -m dev-only'"
+    When I run "sh -c 'cd repo && graft create feature/from-main -l --no-terminal > ../from-main-output.txt 2>&1; status=$?; path=$(graft-test worktree-path . feature/from-main); if [ -f ${path}/main-only.txt ]; then printf yes > ../from-main-main.txt; else printf no > ../from-main-main.txt; fi; if [ -f ${path}/dev-only.txt ]; then printf yes > ../from-main-dev.txt; else printf no > ../from-main-dev.txt; fi; cat ../from-main-output.txt; exit $status'"
+    Then exit code is 0
+    Then output contains "Creating new branch 'feature/from-main' from main..."
+    Then output does not contain "wt.exe was not found"
+    Then file "from-main-main.txt" contains "yes"
+    Then file "from-main-dev.txt" contains "no"
+
+  Scenario: from-origin-main creates from origin main when local main is absent
+    Given I run "sh -c 'graft-test init-repo repo && cd repo && printf main > main-only.txt && git add main-only.txt && git commit --quiet -m main-only && main_sha=$(git rev-parse HEAD) && git update-ref refs/remotes/origin/main $main_sha && git switch --quiet -c dev && printf dev > dev-only.txt && git add dev-only.txt && git commit --quiet -m dev-only && git branch -D main'"
+    When I run "sh -c 'cd repo && graft create feature/from-origin -o --no-terminal > ../from-origin-output.txt 2>&1; status=$?; path=$(graft-test worktree-path . feature/from-origin); if [ -f ${path}/main-only.txt ]; then printf yes > ../from-origin-main.txt; else printf no > ../from-origin-main.txt; fi; if [ -f ${path}/dev-only.txt ]; then printf yes > ../from-origin-dev.txt; else printf no > ../from-origin-dev.txt; fi; cat ../from-origin-output.txt; exit $status'"
+    Then exit code is 0
+    Then output contains "from origin/main"
+    Then file "from-origin-main.txt" contains "yes"
+    Then file "from-origin-dev.txt" contains "no"
+
+  Scenario: from-local-main falls back to origin main when local main is absent
+    Given I run "sh -c 'graft-test init-repo repo && cd repo && printf main > main-only.txt && git add main-only.txt && git commit --quiet -m main-only && main_sha=$(git rev-parse HEAD) && git update-ref refs/remotes/origin/main $main_sha && git switch --quiet -c dev && printf dev > dev-only.txt && git add dev-only.txt && git commit --quiet -m dev-only && git branch -D main'"
+    When I run "sh -c 'cd repo && graft create feature/from-main-fallback --from-local-main --no-terminal > ../fallback-output.txt 2>&1; status=$?; path=$(graft-test worktree-path . feature/from-main-fallback); if [ -f ${path}/main-only.txt ]; then printf yes > ../fallback-main.txt; else printf no > ../fallback-main.txt; fi; if [ -f ${path}/dev-only.txt ]; then printf yes > ../fallback-dev.txt; else printf no > ../fallback-dev.txt; fi; cat ../fallback-output.txt; exit $status'"
+    Then exit code is 0
+    Then output contains "from origin/main"
+    Then file "fallback-main.txt" contains "yes"
+    Then file "fallback-dev.txt" contains "no"
+
+  Scenario: existing branches ignore from-local-main and emit a warning
+    Given I run "sh -c 'graft-test init-repo repo && cd repo && git branch feature/existing'"
+    When I run "sh -c 'cd repo && graft create feature/existing --from-local-main --no-terminal'"
+    Then exit code is 0
+    Then output contains "Ignoring --from-local-main"
+    Then output contains "feature/existing"
+
+  Scenario: create rejects conflicting base flags
+    Given I run "graft-test init-repo repo"
+    When I run "sh -c 'cd repo && graft create feature/invalid -l -o --no-terminal'" expecting exit code 1
+    Then output contains "--from-local-main and --from-origin-main cannot be used together."
+
+  Scenario: create uses short fixed-length managed worktree folder names
+    Given I run "sh -c 'graft-test init-repo This.Is.A.LongRepo && cd This.Is.A.LongRepo && git switch --quiet -c dev && git commit --quiet --allow-empty -m dev'"
+    When I run "sh -c 'cd This.Is.A.LongRepo && branch=feature/segment-segment-segment-segment-segment-segment-segment-segment-segment-segment && graft create $branch --no-terminal > ../folder-output.txt 2>&1; status=$?; path=$(graft-test worktree-path . $branch); actual=$(basename $path); expected=$(graft-test expected-folder-name This.Is.A.LongRepo $branch); if [ $actual = $expected ]; then printf yes > ../folder-match.txt; else printf no > ../folder-match.txt; fi; graft list > ../folder-list.txt; cat ../folder-output.txt; exit $status'"
+    Then exit code is 0
+    Then file "folder-match.txt" contains "yes"
+    Then file "folder-list.txt" contains "feature/segment-segment-segment-segment-segment-segment-segment-segment-segment-segment"
+
+  Scenario: create leaves room for deep tracked paths inside the worktree
+    Given I run "sh -c 'graft-test init-repo repo && cd repo && mkdir -p segment-01-padding/segment-02-padding/segment-03-padding/segment-04-padding/segment-05-padding/segment-06-padding/segment-07-padding && printf deep > segment-01-padding/segment-02-padding/segment-03-padding/segment-04-padding/segment-05-padding/segment-06-padding/segment-07-padding/deep-file.txt && git add . && git commit --quiet -m deep-file && git switch --quiet -c dev && git commit --quiet --allow-empty -m dev'"
+    When I run "sh -c 'cd repo && branch=feature/deep-deep-deep-deep-deep-deep-deep-deep-deep-deep-deep-deep && graft create $branch --no-terminal > ../deep-output.txt 2>&1; status=$?; path=$(graft-test worktree-path . $branch); file_path=${path}/segment-01-padding/segment-02-padding/segment-03-padding/segment-04-padding/segment-05-padding/segment-06-padding/segment-07-padding/deep-file.txt; if [ -f ${file_path} ]; then printf yes > ../deep-file-present.txt; else printf no > ../deep-file-present.txt; fi; if [ ${#file_path} -lt 260 ]; then printf yes > ../deep-path-short.txt; else printf no > ../deep-path-short.txt; fi; cat ../deep-output.txt; exit $status'"
+    Then exit code is 0
+    Then file "deep-file-present.txt" contains "yes"
+    Then file "deep-path-short.txt" contains "yes"

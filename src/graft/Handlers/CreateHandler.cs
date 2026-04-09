@@ -23,7 +23,7 @@ internal sealed class CreateHandler
         _formatter = formatter;
     }
 
-    public async Task<int> HandleAsync(string branchName, CreateBranchBase branchBase, CancellationToken ct)
+    public async Task<int> HandleAsync(string branchName, CreateBranchBase branchBase, bool openTerminal, CancellationToken ct)
     {
         var progress = _formatter.CreateProgressReporter();
         var context = await _repositoryContextFactory.CreateAsync(progress, ct);
@@ -45,6 +45,11 @@ internal sealed class CreateHandler
         }
 
         _formatter.WriteCreateSuccess(result.Worktree!);
+
+        if (!openTerminal)
+        {
+            return ExitCodes.Success;
+        }
 
         progress.Report("Opening Windows Terminal tab...");
         var terminalResult = _terminalService.OpenTab(result.Worktree!.Path);

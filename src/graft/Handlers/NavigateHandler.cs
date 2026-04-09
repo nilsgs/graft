@@ -23,7 +23,7 @@ internal sealed class NavigateHandler
         _formatter = formatter;
     }
 
-    public async Task<int> HandleAsync(CancellationToken ct)
+    public async Task<int> HandleAsync(bool openTerminal, CancellationToken ct)
     {
         var progress = _formatter.CreateProgressReporter();
         var context = await _navigateContextFactory.CreateAsync(progress, ct);
@@ -60,6 +60,12 @@ internal sealed class NavigateHandler
         {
             _formatter.WriteError(ex.Message);
             return ExitCodes.InvalidArguments;
+        }
+
+        if (!openTerminal)
+        {
+            _formatter.WriteSelectedWorktreePath(selectedWorktree.Path);
+            return ExitCodes.Success;
         }
 
         progress.Report("Opening Windows Terminal tab...");

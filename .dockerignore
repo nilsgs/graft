@@ -1,0 +1,9 @@
+.agents/
+.curriculum
+.dotnet/
+.git/
+.vs/
+.vscode/
+artifacts/
+**/bin/
+**/obj/

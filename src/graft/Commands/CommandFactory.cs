@@ -46,11 +46,17 @@ internal static class CommandFactory
             Description = "Create a new branch from origin/main."
         };
 
+        var noTerminalOption = new Option<bool>("--no-terminal")
+        {
+            Description = "Skip opening Windows Terminal after creating the worktree."
+        };
+
         var command = new Command("create", "Create a worktree for a branch and open it in Windows Terminal.");
         command.Aliases.Add("c");
         command.Arguments.Add(branchArgument);
         command.Options.Add(fromLocalMainOption);
         command.Options.Add(fromOriginMainOption);
+        command.Options.Add(noTerminalOption);
         command.Validators.Add(result =>
         {
             if (result.GetValue(fromLocalMainOption) && result.GetValue(fromOriginMainOption))
@@ -64,16 +70,27 @@ internal static class CommandFactory
             var branchBase = GetCreateBranchBase(
                 parseResult.GetValue(fromLocalMainOption),
                 parseResult.GetValue(fromOriginMainOption));
-            return await handler.HandleAsync(branchName, branchBase, ct);
+            var openTerminal = !parseResult.GetValue(noTerminalOption);
+            return await handler.HandleAsync(branchName, branchBase, openTerminal, ct);
         });
         return command;
     }
 
     private static Command CreateNavigateCommand(NavigateHandler handler)
     {
+        var noTerminalOption = new Option<bool>("--no-terminal")
+        {
+            Description = "Skip opening Windows Terminal and print the selected worktree path instead."
+        };
+
         var command = new Command("navigate", "Select a worktree and open it in Windows Terminal from a repo or shared root.");
         command.Aliases.Add("n");
-        command.SetAction(async (_, ct) => await handler.HandleAsync(ct));
+        command.Options.Add(noTerminalOption);
+        command.SetAction(async (parseResult, ct) =>
+        {
+            var openTerminal = !parseResult.GetValue(noTerminalOption);
+            return await handler.HandleAsync(openTerminal, ct);
+        });
         return command;
     }
 

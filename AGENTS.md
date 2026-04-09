@@ -22,7 +22,7 @@ At the beginning of each session:
 - The app targets `.NET 10` via [`src/graft/graft.csproj`](src/graft/graft.csproj).
 - Main dependencies are `System.CommandLine` and `Spectre.Console`.
 - Managed worktrees live under `../.worktrees` relative to the current repository root.
-- `graft` expects both `git` and `wt.exe` to be available on `PATH`.
+- `graft` expects `git` on `PATH`, and normally expects `wt.exe` as well unless `--no-terminal` is used.
 
 ## Architecture
 
@@ -43,22 +43,31 @@ Use the repo-local NuGet config when building:
 dotnet build .\src\graft\graft.csproj -nologo --configfile .\NuGet.config
 ```
 
-Use the smoke harness first for behavioral validation. Pick the script that matches the current shell environment:
+Build the Smoko test image before behavioral validation:
 
 ```powershell
-.\scripts\validate.ps1
+docker build -f Dockerfile.test -t graft-test:latest .
 ```
 
 ```bash
-./scripts/validate.sh
+docker build -f Dockerfile.test -t graft-test:latest .
 ```
 
-The harness:
-- builds the CLI
-- runs it against disposable Git repositories
+Run the Smoko suite directly:
+
+```powershell
+smoko run specs/
+```
+
+```bash
+smoko run specs/
+```
+
+The Smoko suite:
+- runs against disposable Git repositories inside a Linux container image
 - covers create/navigate/list/remove/cleanup/prune flows
-- intentionally runs without `wt.exe`, so that warning is expected during harness runs
-- exists in both `scripts/validate.ps1` and `scripts/validate.sh`; keep them behaviorally aligned when making validation changes
+- uses `--no-terminal` for cross-platform scenarios that should behave the same on Linux and Windows
+- still includes coverage for the default missing-`wt.exe` warning path
 
 For local installation checks:
 
@@ -71,8 +80,9 @@ graft --version
 There is currently no test project in this repository. If code changes affect behavior, prefer at minimum:
 
 1. Build successfully.
-2. Run `.\scripts\validate.ps1` in PowerShell or `./scripts/validate.sh` in Bash.
-3. Fall back to manual CLI verification only for scenarios the harness does not cover.
+2. Rebuild `graft-test:latest` if the CLI or test assets changed.
+3. Run `smoko run specs/`.
+4. Fall back to manual CLI verification only for scenarios the Smoko suite does not cover.
 
 ## Editing Guidance
 

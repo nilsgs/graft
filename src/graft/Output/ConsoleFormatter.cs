@@ -44,6 +44,11 @@ internal sealed class ConsoleFormatter
         WriteMarkupLine($"Branch: [blue]{Markup.Escape(worktree.BranchName)}[/]");
     }
 
+    public void WriteSelectedWorktreePath(string path)
+    {
+        WriteMarkupLine($"Selected worktree: {Markup.Escape(path)}");
+    }
+
     public void WriteWorktrees(IReadOnlyList<WorktreeInfo> worktrees)
     {
         if (worktrees.Count == 0)

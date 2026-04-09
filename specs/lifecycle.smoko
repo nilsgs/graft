@@ -1,0 +1,39 @@
+Feature: graft lifecycle commands
+  `graft list`, `remove`, `cleanup`, and `prune` manage existing worktrees.
+
+  Scenario: list shows created managed worktrees
+    Given I run "sh -c 'graft-test init-repo repo && cd repo && git switch --quiet -c dev && git commit --quiet --allow-empty -m dev && graft create feature/listable --no-terminal >/dev/null && graft create feature/remove-me --no-terminal >/dev/null && graft create feature/remove-dirty --no-terminal >/dev/null'"
+    When I run "sh -c 'cd repo && graft list'"
+    Then exit code is 0
+    Then output contains "feature/listable"
+    Then output contains "feature/remove-me"
+    Then output contains "yes"
+
+  Scenario: remove deletes a clean worktree
+    Given I run "sh -c 'graft-test init-repo repo && cd repo && git switch --quiet -c dev && git commit --quiet --allow-empty -m dev && graft create feature/remove-me --no-terminal >/dev/null'"
+    When I run "sh -c 'cd repo && graft remove feature/remove-me > ../remove-output.txt 2>&1; status=$?; if graft-test worktree-path . feature/remove-me > /dev/null 2>&1; then printf no > ../remove-missing.txt; else printf yes > ../remove-missing.txt; fi; cat ../remove-output.txt; exit $status'"
+    Then exit code is 0
+    Then output contains "Removed worktree:"
+    Then file "remove-missing.txt" contains "yes"
+
+  Scenario: remove force deletes a dirty worktree
+    Given I run "sh -c 'graft-test init-repo repo && cd repo && git switch --quiet -c dev && git commit --quiet --allow-empty -m dev && graft create feature/remove-dirty --no-terminal >/dev/null && path=$(graft-test worktree-path . feature/remove-dirty) && printf dirty > ${path}/dirty.txt'"
+    When I run "sh -c 'cd repo && graft remove feature/remove-dirty --force > ../remove-dirty-output.txt 2>&1; status=$?; if graft-test worktree-path . feature/remove-dirty > /dev/null 2>&1; then printf no > ../remove-dirty-missing.txt; else printf yes > ../remove-dirty-missing.txt; fi; cat ../remove-dirty-output.txt; exit $status'"
+    Then exit code is 0
+    Then output contains "Removed worktree:"
+    Then file "remove-dirty-missing.txt" contains "yes"
+
+  Scenario: cleanup removes all current candidates non-interactively
+    Given I run "sh -c 'graft-test init-repo repo && cd repo && git switch --quiet -c dev && git commit --quiet --allow-empty -m dev && graft create feature/cleanup-one --no-terminal >/dev/null && graft create feature/cleanup-two --no-terminal >/dev/null'"
+    When I run "sh -c 'cd repo && graft cleanup --all --yes > ../cleanup-output.txt 2>&1; status=$?; git worktree list --porcelain > ../cleanup-worktrees.txt; if grep -q feature/cleanup-one ../cleanup-worktrees.txt; then printf no > ../cleanup-one-removed.txt; else printf yes > ../cleanup-one-removed.txt; fi; if grep -q feature/cleanup-two ../cleanup-worktrees.txt; then printf no > ../cleanup-two-removed.txt; else printf yes > ../cleanup-two-removed.txt; fi; cat ../cleanup-output.txt; exit $status'"
+    Then exit code is 0
+    Then output contains "Removed worktree:"
+    Then file "cleanup-one-removed.txt" contains "yes"
+    Then file "cleanup-two-removed.txt" contains "yes"
+
+  Scenario: prune removes stale worktree metadata
+    Given I run "sh -c 'graft-test init-repo repo && cd repo && git switch --quiet -c dev && git commit --quiet --allow-empty -m dev && graft create feature/prune-me --no-terminal >/dev/null && path=$(graft-test worktree-path . feature/prune-me) && rm -rf ${path}'"
+    When I run "sh -c 'cd repo && graft prune > ../prune-output.txt 2>&1; status=$?; git worktree list --porcelain > ../prune-worktrees.txt; if grep -q feature/prune-me ../prune-worktrees.txt; then printf no > ../prune-removed.txt; else printf yes > ../prune-removed.txt; fi; cat ../prune-output.txt; exit $status'"
+    Then exit code is 0
+    Then output contains "Pruned stale Git worktree metadata."
+    Then file "prune-removed.txt" contains "yes"

@@ -11,6 +11,10 @@ It creates worktrees under a shared `../.worktrees` folder, opens the new worktr
 - Windows Terminal available as `wt.exe`
 - `graft.exe` installed locally
 
+For validation:
+- Docker available to Smoko
+- `smoko` installed on the host
+
 ## Install
 
 Publish and install `graft` locally:
@@ -85,6 +89,7 @@ graft
 - `graft create --from-local-main` creates a new branch from local `main`, or `origin/main` if local `main` is not available.
 - `graft create --from-origin-main` creates a new branch from `origin/main` only.
 - If the target branch already exists, `--from-local-main` and `--from-origin-main` are ignored and `graft` prints a warning.
+- `graft create --no-terminal` and `graft navigate --no-terminal` skip the Windows Terminal launch for non-interactive or validation use.
 
 ## Commands
 
@@ -100,16 +105,16 @@ Show the installed version:
 graft --version
 ```
 
-Run the smoke validation harness:
+Build the Smoko test image:
 
 ```powershell
-.\scripts\validate.ps1
+docker build -f Dockerfile.test -t graft-test:latest .
 ```
 
-or from Bash:
+Then run the specs:
 
 ```bash
-./scripts/validate.sh
+smoko run specs/
 ```
 
 Short command aliases:
@@ -152,8 +157,15 @@ Behavior:
 - creates or reuses the branch as needed
 - supports `--from-local-main` / `-l` for new branches from `main`
 - supports `--from-origin-main` / `-o` for new branches from `origin/main`
+- supports `--no-terminal` to skip opening Windows Terminal
 - creates the worktree folder using a fixed-length deterministic name to leave more headroom for long paths inside the repository
 - opens a new Windows Terminal tab in that folder
+
+For non-interactive or validation use:
+
+```powershell
+graft create feature/my-branch --no-terminal
+```
 
 Example output:
 
@@ -179,6 +191,14 @@ graft n
 You can run this:
 - from inside a Git repository, where it shows that repository's worktrees
 - from the directory that contains `.worktrees`, where it shows direct managed worktree folders under `.worktrees`
+
+For non-interactive or validation use:
+
+```powershell
+graft navigate --no-terminal
+```
+
+With `--no-terminal`, `graft` prints the selected worktree path instead of opening Windows Terminal.
 
 ### List
 
@@ -299,28 +319,30 @@ graft cleanup
 
 ## Validation
 
-Run the built-in smoke harness after behavioral changes:
+Build the Smoko test image after CLI or spec changes:
 
 ```powershell
-.\scripts\validate.ps1
+docker build -f Dockerfile.test -t graft-test:latest .
 ```
 
-or from Bash:
+Run the Smoko suite:
 
 ```bash
-./scripts/validate.sh
+smoko run specs/
 ```
 
 What it covers:
 - `create` from `HEAD`, `main`, and `origin/main`
+- `create --no-terminal`
 - `navigate` from both repository mode and shared-root mode
+- `navigate --no-terminal`
 - `list`
 - `remove`
 - `cleanup --all --yes`
 - `prune`
 
-The harness builds `graft`, creates disposable Git repositories, and intentionally runs without `wt.exe`, so the Windows Terminal warning is expected during validation runs.
-Keep `scripts/validate.ps1` and `scripts/validate.sh` behaviorally aligned when changing validation coverage or expectations.
+The Smoko image builds `graft`, creates disposable Git repositories inside a Linux container, and covers both the explicit `--no-terminal` flow and the default missing-`wt.exe` warning path.
+Smoko does not mount the host repository into `/smoko-work`, so rebuild `graft-test:latest` after changing the CLI, helper script, or specs.
 
 ## Notes
 

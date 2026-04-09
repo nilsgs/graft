@@ -1,0 +1,30 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+COPY Directory.Build.props .
+COPY NuGet.config .
+COPY graft.slnx .
+COPY README.md .
+COPY src ./src
+
+RUN dotnet build src/graft/graft.csproj \
+    -c Release \
+    -nologo \
+    --configfile NuGet.config \
+    -p:RuntimeIdentifiers= \
+    && mkdir -p /out \
+    && cp -r /src/src/graft/bin/Release/net10.0/. /out/
+
+FROM mcr.microsoft.com/dotnet/runtime:10.0
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /smoko-work
+
+COPY --from=build /out /usr/local/lib/graft
+COPY specs/helpers/graft-test.sh /usr/local/bin/graft-test
+
+RUN chmod +x /usr/local/bin/graft-test \
+    && printf '#!/bin/sh\nexec dotnet /usr/local/lib/graft/graft.dll "$@"\n' > /usr/local/bin/graft \
+    && chmod +x /usr/local/bin/graft

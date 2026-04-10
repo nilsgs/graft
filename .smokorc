@@ -1,2 +1,3 @@
-image = "graft-test:latest"
+image   = "graft-test:latest"
 timeout = 10
+build   = "docker build -f Dockerfile.test -t graft-test:latest ."

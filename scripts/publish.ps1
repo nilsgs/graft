@@ -44,6 +44,18 @@ dotnet @publishArguments
 New-Item -ItemType Directory -Force -Path $installDir | Out-Null
 Copy-Item (Join-Path $publishDir "graft.exe") $installPath -Force
 
+$userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+$pathParts = if ($userPath) { $userPath -split ";" } else { @() }
+if (-not ($pathParts | Where-Object { $_ -ieq $installDir })) {
+    $newUserPath = if ($userPath) { "$userPath;$installDir" } else { $installDir }
+    [Environment]::SetEnvironmentVariable("PATH", $newUserPath, "User")
+    if ($env:PATH -notmatch [regex]::Escape($installDir)) {
+        $env:PATH = "$env:PATH;$installDir"
+    }
+    Write-Host "Added $installDir to user PATH."
+    Write-Host "Restart your shell for the change to take effect in new sessions."
+}
+
 Write-Host "Current user profile: $env:USERPROFILE"
 Write-Host "Published runtime: $RuntimeIdentifier"
 if ($VersionSuffix) {

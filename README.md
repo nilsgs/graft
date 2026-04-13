@@ -63,11 +63,13 @@ In PowerShell, that path is:
 Join-Path $env:USERPROFILE ".graft\bin\graft.exe"
 ```
 
-If `%USERPROFILE%\.graft\bin` is on your `PATH`, you can run it as:
+The script also adds `%USERPROFILE%\.graft\bin` to your Windows user `PATH` automatically if it is not already there, so you can run it as:
 
 ```powershell
 graft
 ```
+
+You may need to restart your shell for the `PATH` change to take effect in new sessions.
 
 ## Important behavior
 

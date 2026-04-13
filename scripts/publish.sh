@@ -143,6 +143,23 @@ dotnet "${publish_args[@]}"
 mkdir -p "$install_dir"
 cp "$publish_dir/graft.exe" "$install_path"
 
+if command -v powershell.exe >/dev/null 2>&1; then
+    powershell.exe -NoProfile -Command '
+        $installDir = Join-Path $env:USERPROFILE ".graft\bin"
+        $userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+        $pathParts = if ($userPath) { $userPath -split ";" } else { @() }
+        if (-not ($pathParts | Where-Object { $_ -ieq $installDir })) {
+            $newUserPath = if ($userPath) { "$userPath;$installDir" } else { $installDir }
+            [Environment]::SetEnvironmentVariable("PATH", $newUserPath, "User")
+            Write-Host "Added $installDir to user PATH."
+            Write-Host "Restart your shell for the change to take effect in new sessions."
+        }
+    '
+else
+    printf 'Could not update PATH automatically: powershell.exe not found.\n'
+    printf 'Add %s\\.graft\\bin to your Windows user PATH manually.\n' "$USERPROFILE"
+fi
+
 printf 'Current user profile: %s\n' "$user_profile"
 printf 'Published runtime: %s\n' "$runtime_identifier"
 if [[ -n "$version_suffix" ]]; then

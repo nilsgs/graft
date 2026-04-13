@@ -121,7 +121,7 @@ resolve_userprofile() {
 }
 
 user_profile="$(resolve_userprofile)"
-install_dir="$user_profile/bin"
+install_dir="$user_profile/.graft/bin"
 install_path="$install_dir/graft.exe"
 
 publish_args=(

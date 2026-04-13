@@ -6,11 +6,13 @@ namespace Graft.Services;
 internal sealed class NavigateContextFactory
 {
     private readonly GitService _gitService;
+    private readonly WorktreePathService _worktreePathService;
     private readonly ConsoleFormatter _formatter;
 
-    public NavigateContextFactory(GitService gitService, ConsoleFormatter formatter)
+    public NavigateContextFactory(GitService gitService, WorktreePathService worktreePathService, ConsoleFormatter formatter)
     {
         _gitService = gitService;
+        _worktreePathService = worktreePathService;
         _formatter = formatter;
     }
 
@@ -30,18 +32,18 @@ internal sealed class NavigateContextFactory
                 null);
         }
 
-        var sharedRootPath = Path.Combine(currentDirectory, ".worktrees");
-        if (Directory.Exists(sharedRootPath))
+        var graftWorktreesPath = _worktreePathService.GetManagedRoot();
+        if (Directory.Exists(graftWorktreesPath))
         {
             return new NavigateContextResult(
                 false,
                 ExitCodes.Success,
                 NavigateLocationKind.SharedRoot,
                 null,
-                currentDirectory);
+                graftWorktreesPath);
         }
 
-        _formatter.WriteError("graft navigate must be run from inside an existing Git repository or from a folder that contains '.worktrees'.");
+        _formatter.WriteError("graft navigate must be run from inside an existing Git repository, or ~/.graft/worktrees must exist.");
         return new NavigateContextResult(true, ExitCodes.NotInGitRepository, null, null, null);
     }
 }

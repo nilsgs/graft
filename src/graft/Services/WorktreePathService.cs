@@ -8,17 +8,15 @@ internal sealed class WorktreePathService
     private const int RepoHashLength = 8;
     private const int BranchHashLength = 8;
 
-    public string GetManagedRoot(string repositoryRoot)
+    public string GetManagedRoot()
     {
-        var repositoryParent = Directory.GetParent(repositoryRoot)
-            ?? throw new InvalidOperationException("Repository root has no parent directory.");
-
-        return Path.Combine(repositoryParent.FullName, ".worktrees");
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return Path.Combine(userProfile, ".graft", "worktrees");
     }
 
     public string GetManagedWorktreePath(string repositoryRoot, string branchName)
     {
-        var managedRoot = GetManagedRoot(repositoryRoot);
+        var managedRoot = GetManagedRoot();
         var repoName = new DirectoryInfo(repositoryRoot).Name;
         var repoHash = GetHash(repoName, RepoHashLength);
         var branchHash = GetHash(branchName, BranchHashLength);
@@ -26,9 +24,9 @@ internal sealed class WorktreePathService
         return Path.Combine(managedRoot, BuildFolderName(repoHash, branchHash));
     }
 
-    public bool IsManagedPath(string repositoryRoot, string path)
+    public bool IsManagedPath(string path)
     {
-        var managedRoot = EnsureTrailingSeparator(Path.GetFullPath(GetManagedRoot(repositoryRoot)));
+        var managedRoot = EnsureTrailingSeparator(Path.GetFullPath(GetManagedRoot()));
         var candidate = EnsureTrailingSeparator(Path.GetFullPath(path));
         return candidate.StartsWith(managedRoot, StringComparison.OrdinalIgnoreCase);
     }

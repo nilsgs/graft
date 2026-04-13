@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $projectPath = Join-Path $repoRoot "src/graft/graft.csproj"
-$installDir = Join-Path $env:USERPROFILE "bin"
+$installDir = Join-Path $env:USERPROFILE ".graft\bin"
 $installPath = Join-Path $installDir "graft.exe"
 
 if (-not $RuntimeIdentifier) {

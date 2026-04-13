@@ -68,9 +68,7 @@ expected_folder_name() {
 }
 
 managed_root() {
-    repo="$1"
-    repo_dir="$(cd "$repo" && pwd)"
-    printf '%s/.worktrees\n' "$(dirname "$repo_dir")"
+    printf '%s/.graft/worktrees\n' "$HOME"
 }
 
 command="${1:-}"

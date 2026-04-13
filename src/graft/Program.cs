@@ -14,7 +14,7 @@ internal static class Program
         var worktreePathService = new WorktreePathService();
         var terminalService = new TerminalService();
         var repositoryContextFactory = new RepositoryContextFactory(gitService, formatter);
-        var navigateContextFactory = new NavigateContextFactory(gitService, formatter);
+        var navigateContextFactory = new NavigateContextFactory(gitService, worktreePathService, formatter);
         var worktreeService = new WorktreeService(gitService, worktreePathService, formatter);
 
         var rootCommand = CommandFactory.CreateRootCommand(

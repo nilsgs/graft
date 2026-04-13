@@ -21,7 +21,7 @@ At the beginning of each session:
 - `graft` is a Windows-only CLI for managing Git worktrees.
 - The app targets `.NET 10` via [`src/graft/graft.csproj`](src/graft/graft.csproj).
 - Main dependencies are `System.CommandLine` and `Spectre.Console`.
-- Managed worktrees live under `../.worktrees` relative to the current repository root.
+- Managed worktrees live under `~/.graft/worktrees` (i.e. `%USERPROFILE%\.graft\worktrees`).
 - `graft` expects `git` on `PATH`, and normally expects `wt.exe` as well unless `--no-terminal` is used.
 
 ## Architecture

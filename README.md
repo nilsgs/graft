@@ -2,7 +2,7 @@
 
 graft is a small Windows CLI for working with Git worktrees from inside an existing repository and for navigating managed worktrees from a shared root folder.
 
-It creates worktrees under a shared `../.worktrees` folder, opens the new worktree in a Windows Terminal tab, and helps clean up old worktrees.
+It creates worktrees under a shared `~/.graft/worktrees` folder, opens the new worktree in a Windows Terminal tab, and helps clean up old worktrees.
 
 ## Requirements
 
@@ -54,16 +54,16 @@ For local prerelease builds, you can add a suffix during publish:
 That installs the executable to:
 
 ```text
-%USERPROFILE%\bin\graft.exe
+%USERPROFILE%\.graft\bin\graft.exe
 ```
 
 In PowerShell, that path is:
 
 ```powershell
-Join-Path $env:USERPROFILE "bin\graft.exe"
+Join-Path $env:USERPROFILE ".graft\bin\graft.exe"
 ```
 
-If `%USERPROFILE%\bin` is on your `PATH`, you can run it as:
+If `%USERPROFILE%\.graft\bin` is on your `PATH`, you can run it as:
 
 ```powershell
 graft
@@ -72,12 +72,12 @@ graft
 ## Important behavior
 
 - `create`, `list`, `remove`, `cleanup`, and `prune` work only when run from inside an existing Git repository.
-- `navigate` also works from the directory that contains the shared `.worktrees` folder.
-- All managed worktrees are created under `../.worktrees` relative to the repo root.
+- `navigate` also works when `~/.graft/worktrees` exists and you are outside any Git repository.
+- All managed worktrees are created under `~/.graft/worktrees` (i.e. `%USERPROFILE%\.graft\worktrees`).
 - Worktree folders use this naming pattern:
 
 ```text
-../.worktrees/{repo-hash8}{branch-hash8}
+~/.graft/worktrees/{repo-hash8}{branch-hash8}
 ```
 
 - `repo-hash8` is the first 8 lowercase hex characters of the SHA-256 hash of the full repo folder name.
@@ -153,7 +153,7 @@ graft c feature/my-branch
 ```
 
 Behavior:
-- creates `../.worktrees` if it does not exist
+- creates `~/.graft/worktrees` if it does not exist
 - creates or reuses the branch as needed
 - supports `--from-local-main` / `-l` for new branches from `main`
 - supports `--from-origin-main` / `-o` for new branches from `origin/main`
@@ -170,7 +170,7 @@ graft create feature/my-branch --no-terminal
 Example output:
 
 ```text
-Created worktree: <parent-of-repo>\.worktrees\1a2b3c4d5e6f7a8b
+Created worktree: ~/.graft/worktrees\1a2b3c4d5e6f7a8b
 Branch: feature/my-branch
 ```
 
@@ -190,7 +190,7 @@ graft n
 
 You can run this:
 - from inside a Git repository, where it shows that repository's worktrees
-- from the directory that contains `.worktrees`, where it shows direct managed worktree folders under `.worktrees`
+- from any directory when `~/.graft/worktrees` exists, where it shows all managed worktrees
 
 For non-interactive or validation use:
 
@@ -237,7 +237,7 @@ graft r feature/my-branch
 or:
 
 ```powershell
-graft remove ..\.worktrees\1a2b3c4d5e6f7a8b
+graft remove ~\.graft\worktrees\1a2b3c4d5e6f7a8b
 ```
 
 Force removal for dirty or locked worktrees:
@@ -260,7 +260,7 @@ Short form:
 graft x
 ```
 
-`graft cleanup` focuses on managed worktrees under `../.worktrees` and surfaces candidates such as:
+`graft cleanup` focuses on managed worktrees under `~/.graft/worktrees` and surfaces candidates such as:
 - missing path
 - clean
 - gone upstream
@@ -347,5 +347,5 @@ Smoko does not mount the host repository into `/smoko-work`, so rebuild `graft-t
 ## Notes
 
 - If `wt.exe` is not available, worktree creation still succeeds and `graft` prints a warning.
-- `navigate` also works from a directory that contains `.worktrees`.
+- `navigate` also works from outside a repository when `~/.graft/worktrees` exists.
 - `graft` manages only the worktrees for the repository you are currently inside.

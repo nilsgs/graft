@@ -7,12 +7,10 @@ Feature: graft create
     Given the working directory is "repo"
     Given I run "git switch --quiet -c dev"
     Given I run "sh -c 'printf dev > dev-only.txt && git add dev-only.txt && git commit --quiet -m dev'"
-    Given I run "graft-test expected-folder-name repo feature/default-head"
-    And I save output as $WFOLDER
-    When I run "graft create feature/default-head"
+    When I run "sh -c 'graft create feature/default-head; graft_exit=$?; WTPATH=$(graft-test worktree-path . feature/default-head); test -f $WTPATH/dev-only.txt && echo FILE_OK; exit $graft_exit'"
     Then exit code is 0
     Then output contains "wt.exe was not found"
-    Then file ".worktrees/$WFOLDER/dev-only.txt" exists
+    Then output contains "FILE_OK"
 
   Scenario: from-local-main creates from main and skips terminal launch when requested
     Given I run "graft-test init-repo repo"
@@ -20,14 +18,12 @@ Feature: graft create
     Given I run "sh -c 'printf main > main-only.txt && git add main-only.txt && git commit --quiet -m main-only'"
     Given I run "git switch --quiet -c dev"
     Given I run "sh -c 'printf dev > dev-only.txt && git add dev-only.txt && git commit --quiet -m dev-only'"
-    Given I run "graft-test expected-folder-name repo feature/from-main"
-    And I save output as $WFOLDER
-    When I run "graft create feature/from-main -l --no-terminal"
+    When I run "sh -c 'graft create feature/from-main -l --no-terminal; graft_exit=$?; WTPATH=$(graft-test worktree-path . feature/from-main); if test -f $WTPATH/main-only.txt; then echo MAIN_OK; else echo MAIN_MISSING; fi; if test -f $WTPATH/dev-only.txt; then echo DEV_EXISTS; else echo DEV_OK; fi; exit $graft_exit'"
     Then exit code is 0
     Then output contains "from main"
     Then output does not contain "wt.exe was not found"
-    Then file ".worktrees/$WFOLDER/main-only.txt" exists
-    Then file ".worktrees/$WFOLDER/dev-only.txt" does not exist
+    Then output contains "MAIN_OK"
+    Then output contains "DEV_OK"
 
   Scenario: from-origin-main creates from origin main when local main is absent
     Given I run "graft-test init-repo repo"
@@ -37,13 +33,11 @@ Feature: graft create
     Given I run "git switch --quiet -c dev"
     Given I run "sh -c 'printf dev > dev-only.txt && git add dev-only.txt && git commit --quiet -m dev-only'"
     Given I run "git branch -D main"
-    Given I run "graft-test expected-folder-name repo feature/from-origin"
-    And I save output as $WFOLDER
-    When I run "graft create feature/from-origin -o --no-terminal"
+    When I run "sh -c 'graft create feature/from-origin -o --no-terminal; graft_exit=$?; WTPATH=$(graft-test worktree-path . feature/from-origin); if test -f $WTPATH/main-only.txt; then echo MAIN_OK; else echo MAIN_MISSING; fi; if test -f $WTPATH/dev-only.txt; then echo DEV_EXISTS; else echo DEV_OK; fi; exit $graft_exit'"
     Then exit code is 0
     Then output contains "from origin/main"
-    Then file ".worktrees/$WFOLDER/main-only.txt" exists
-    Then file ".worktrees/$WFOLDER/dev-only.txt" does not exist
+    Then output contains "MAIN_OK"
+    Then output contains "DEV_OK"
 
   Scenario: from-local-main falls back to origin main when local main is absent
     Given I run "graft-test init-repo repo"
@@ -53,13 +47,11 @@ Feature: graft create
     Given I run "git switch --quiet -c dev"
     Given I run "sh -c 'printf dev > dev-only.txt && git add dev-only.txt && git commit --quiet -m dev-only'"
     Given I run "git branch -D main"
-    Given I run "graft-test expected-folder-name repo feature/from-main-fallback"
-    And I save output as $WFOLDER
-    When I run "graft create feature/from-main-fallback --from-local-main --no-terminal"
+    When I run "sh -c 'graft create feature/from-main-fallback --from-local-main --no-terminal; graft_exit=$?; WTPATH=$(graft-test worktree-path . feature/from-main-fallback); if test -f $WTPATH/main-only.txt; then echo MAIN_OK; else echo MAIN_MISSING; fi; if test -f $WTPATH/dev-only.txt; then echo DEV_EXISTS; else echo DEV_OK; fi; exit $graft_exit'"
     Then exit code is 0
     Then output contains "from origin/main"
-    Then file ".worktrees/$WFOLDER/main-only.txt" exists
-    Then file ".worktrees/$WFOLDER/dev-only.txt" does not exist
+    Then output contains "MAIN_OK"
+    Then output contains "DEV_OK"
 
   Scenario: existing branches ignore from-local-main and emit a warning
     Given I run "graft-test init-repo repo"
@@ -81,11 +73,9 @@ Feature: graft create
     Given the working directory is "This.Is.A.LongRepo"
     Given I run "git switch --quiet -c dev"
     Given I run "git commit --quiet --allow-empty -m dev"
-    Given I run "graft-test expected-folder-name This.Is.A.LongRepo feature/segment-segment-segment-segment-segment-segment-segment-segment-segment-segment"
-    And I save output as $WFOLDER
-    When I run "graft create feature/segment-segment-segment-segment-segment-segment-segment-segment-segment-segment --no-terminal"
+    When I run "sh -c 'graft create feature/segment-segment-segment-segment-segment-segment-segment-segment-segment-segment --no-terminal; graft_exit=$?; WTPATH=$(graft-test worktree-path . feature/segment-segment-segment-segment-segment-segment-segment-segment-segment-segment); test -d $WTPATH && echo DIR_OK; exit $graft_exit'"
     Then exit code is 0
-    Then directory ".worktrees/$WFOLDER" exists
+    Then output contains "DIR_OK"
 
   Scenario: create leaves room for deep tracked paths inside the worktree
     Given I run "graft-test init-repo repo"
@@ -93,11 +83,9 @@ Feature: graft create
     Given I run "sh -c 'mkdir -p segment-01-padding/segment-02-padding/segment-03-padding/segment-04-padding/segment-05-padding/segment-06-padding/segment-07-padding && printf deep > segment-01-padding/segment-02-padding/segment-03-padding/segment-04-padding/segment-05-padding/segment-06-padding/segment-07-padding/deep-file.txt && git add . && git commit --quiet -m deep-file'"
     Given I run "git switch --quiet -c dev"
     Given I run "git commit --quiet --allow-empty -m dev"
-    Given I run "graft-test expected-folder-name repo feature/deep-deep-deep-deep-deep-deep-deep-deep-deep-deep-deep-deep"
-    And I save output as $WFOLDER
-    When I run "graft create feature/deep-deep-deep-deep-deep-deep-deep-deep-deep-deep-deep-deep --no-terminal"
+    When I run "sh -c 'graft create feature/deep-deep-deep-deep-deep-deep-deep-deep-deep-deep-deep-deep --no-terminal; graft_exit=$?; WTPATH=$(graft-test worktree-path . feature/deep-deep-deep-deep-deep-deep-deep-deep-deep-deep-deep-deep); test -f $WTPATH/segment-01-padding/segment-02-padding/segment-03-padding/segment-04-padding/segment-05-padding/segment-06-padding/segment-07-padding/deep-file.txt && echo FILE_OK; exit $graft_exit'"
     Then exit code is 0
-    Then file ".worktrees/$WFOLDER/segment-01-padding/segment-02-padding/segment-03-padding/segment-04-padding/segment-05-padding/segment-06-padding/segment-07-padding/deep-file.txt" exists
+    Then output contains "FILE_OK"
 
   Scenario: create sets up a local tracking branch when the branch exists only on origin
     Given I run "graft-test init-repo repo"

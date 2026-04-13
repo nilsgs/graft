@@ -27,7 +27,7 @@ internal sealed class WorktreeService
     {
         progress?.Report($"Preparing managed worktree for '{branchName}'...");
 
-        var managedRoot = _worktreePathService.GetManagedRoot(repositoryRoot);
+        var managedRoot = _worktreePathService.GetManagedRoot();
         string targetPath;
 
         try
@@ -108,7 +108,7 @@ internal sealed class WorktreeService
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
-        var managedRoot = Path.Combine(sharedRootDirectory, ".worktrees");
+        var managedRoot = sharedRootDirectory;
         progress?.Report("Reading managed worktrees...");
 
         string[] directories;
@@ -528,7 +528,7 @@ internal sealed class WorktreeService
                 isDetached,
                 isLocked,
                 isPrunable,
-                !string.IsNullOrWhiteSpace(path) && _worktreePathService.IsManagedPath(repositoryRoot, path),
+                !string.IsNullOrWhiteSpace(path) && _worktreePathService.IsManagedPath(path),
                 statuses));
         }
 

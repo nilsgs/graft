@@ -11,7 +11,7 @@ Feature: graft navigate
     Then exit code is 0
     Then output contains "Select worktree to open"
     Then output contains "Selected worktree:"
-    Then output matches pattern "Selected worktree: .*/\\.worktrees/.*"
+    Then output matches pattern "Selected worktree: .*\\.graft/worktrees/.*"
 
   Scenario: navigate reads managed worktrees from the shared root
     Given I run "graft-test init-repo repo"
@@ -20,15 +20,15 @@ Feature: graft navigate
     Given I run "git commit --quiet --allow-empty -m dev"
     Given I run "graft create feature/navigate --no-terminal"
     Given the working directory is "/smoko-work"
-    Given the directory ".worktrees/invalid-entry" exists
+    Given I run "mkdir -p $HOME/.graft/worktrees/invalid-entry"
     When I run "sh -c '{ printf 1; echo; } | graft navigate --no-terminal'"
     Then exit code is 0
     Then output contains "Reading managed worktrees..."
     Then output contains "Selected worktree:"
-    Then output matches pattern "Selected worktree: .*/\\.worktrees/.*"
+    Then output matches pattern "Selected worktree: .*\\.graft/worktrees/.*"
 
   Scenario: navigate from shared root with no managed worktrees prints a message
-    Given the directory ".worktrees" exists
+    Given I run "mkdir -p $HOME/.graft/worktrees"
     When I run "graft navigate --no-terminal"
     Then exit code is 0
     Then output contains "No worktrees found."

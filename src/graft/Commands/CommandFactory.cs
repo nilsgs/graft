@@ -38,12 +38,12 @@ internal static class CommandFactory
 
         var fromLocalMainOption = new Option<bool>("--from-local-main", "-l")
         {
-            Description = "Create a new branch from local main, or origin/main if local main does not exist."
+            Description = "Create a new branch from local main/master, or origin/main/master if local main/master do not exist."
         };
 
         var fromOriginMainOption = new Option<bool>("--from-origin-main", "-o")
         {
-            Description = "Create a new branch from origin/main."
+            Description = "Create a new branch from origin/main or origin/master."
         };
 
         var noTerminalOption = new Option<bool>("--no-terminal")

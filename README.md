@@ -88,8 +88,8 @@ You may need to restart your shell for the `PATH` change to take effect in new s
 - If the branch already exists locally, `graft` uses it.
 - If the branch exists only as `origin/<branch>`, `graft` creates a local tracking branch.
 - If the branch does not exist, `graft` creates it from the current `HEAD`.
-- `graft create --from-local-main` creates a new branch from local `main`, or `origin/main` if local `main` is not available.
-- `graft create --from-origin-main` creates a new branch from `origin/main` only.
+- `graft create --from-local-main` creates a new branch from local `main` or `master`, or `origin/main`/`origin/master` if local `main`/`master` are not available.
+- `graft create --from-origin-main` creates a new branch from `origin/main` or `origin/master` only.
 - If the target branch already exists, `--from-local-main` and `--from-origin-main` are ignored and `graft` prints a warning.
 - `graft create --no-terminal` and `graft navigate --no-terminal` skip the Windows Terminal launch for non-interactive or validation use.
 

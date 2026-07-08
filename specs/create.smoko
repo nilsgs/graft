@@ -39,6 +39,31 @@ Feature: graft create
     Then output contains "MAIN_OK"
     Then output contains "DEV_OK"
 
+  Scenario: from-local-main creates from master when main is absent
+    Given I run "graft-test init-repo repo"
+    Given the working directory is "repo"
+    Given I run "sh -c 'git branch -m master && printf master > master-only.txt && git add master-only.txt && git commit --quiet -m master-only'"
+    Given I run "git switch --quiet -c dev"
+    Given I run "sh -c 'printf dev > dev-only.txt && git add dev-only.txt && git commit --quiet -m dev-only'"
+    When I run "sh -c 'graft create feature/from-master -l --no-terminal; graft_exit=$?; WTPATH=$(graft-test worktree-path . feature/from-master); if test -f $WTPATH/master-only.txt; then echo MASTER_OK; else echo MASTER_MISSING; fi; if test -f $WTPATH/dev-only.txt; then echo DEV_EXISTS; else echo DEV_OK; fi; exit $graft_exit'"
+    Then exit code is 0
+    Then output contains "from master"
+    Then output contains "MASTER_OK"
+    Then output contains "DEV_OK"
+
+  Scenario: from-origin-main creates from origin master when origin main is absent
+    Given I run "graft-test init-repo repo"
+    Given the working directory is "repo"
+    Given I run "sh -c 'printf master > master-only.txt && git add master-only.txt && git commit --quiet -m master-only'"
+    Given I run "sh -c 'git update-ref refs/remotes/origin/master $(git rev-parse HEAD)'"
+    Given I run "git switch --quiet -c dev"
+    Given I run "sh -c 'printf dev > dev-only.txt && git add dev-only.txt && git commit --quiet -m dev-only'"
+    When I run "sh -c 'graft create feature/from-origin-master -o --no-terminal; graft_exit=$?; WTPATH=$(graft-test worktree-path . feature/from-origin-master); if test -f $WTPATH/master-only.txt; then echo MASTER_OK; else echo MASTER_MISSING; fi; if test -f $WTPATH/dev-only.txt; then echo DEV_EXISTS; else echo DEV_OK; fi; exit $graft_exit'"
+    Then exit code is 0
+    Then output contains "from origin/master"
+    Then output contains "MASTER_OK"
+    Then output contains "DEV_OK"
+
   Scenario: from-local-main falls back to origin main when local main is absent
     Given I run "graft-test init-repo repo"
     Given the working directory is "repo"
@@ -51,6 +76,19 @@ Feature: graft create
     Then exit code is 0
     Then output contains "from origin/main"
     Then output contains "MAIN_OK"
+    Then output contains "DEV_OK"
+
+  Scenario: from-local-main falls back to origin master when local main/master are absent
+    Given I run "graft-test init-repo repo"
+    Given the working directory is "repo"
+    Given I run "sh -c 'git branch -m trunk && printf trunk > trunk-only.txt && git add trunk-only.txt && git commit --quiet -m trunk-only'"
+    Given I run "sh -c 'git update-ref refs/remotes/origin/master $(git rev-parse HEAD)'"
+    Given I run "git switch --quiet -c dev"
+    Given I run "sh -c 'printf dev > dev-only.txt && git add dev-only.txt && git commit --quiet -m dev-only'"
+    When I run "sh -c 'graft create feature/from-master-fallback --from-local-main --no-terminal; graft_exit=$?; WTPATH=$(graft-test worktree-path . feature/from-master-fallback); if test -f $WTPATH/trunk-only.txt; then echo TRUNK_OK; else echo TRUNK_MISSING; fi; if test -f $WTPATH/dev-only.txt; then echo DEV_EXISTS; else echo DEV_OK; fi; exit $graft_exit'"
+    Then exit code is 0
+    Then output contains "from origin/master"
+    Then output contains "TRUNK_OK"
     Then output contains "DEV_OK"
 
   Scenario: existing branches ignore from-local-main and emit a warning

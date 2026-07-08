@@ -330,27 +330,39 @@ internal sealed class WorktreeService
 
             case CreateBranchBase.Main:
             {
-                var localMainExists = await GitRefExistsAsync(repositoryRoot, "refs/heads/main", ct);
-                if (localMainExists)
+                foreach (var branchName in new[] { "main", "master" })
                 {
-                    return (true, "main", "main", null);
+                    var localBranchExists = await GitRefExistsAsync(repositoryRoot, $"refs/heads/{branchName}", ct);
+                    if (localBranchExists)
+                    {
+                        return (true, branchName, branchName, null);
+                    }
                 }
 
-                var originMainExists = await GitRefExistsAsync(repositoryRoot, "refs/remotes/origin/main", ct);
-                if (originMainExists)
+                foreach (var branchName in new[] { "main", "master" })
                 {
-                    return (true, "origin/main", "origin/main", null);
+                    var originBranchExists = await GitRefExistsAsync(repositoryRoot, $"refs/remotes/origin/{branchName}", ct);
+                    if (originBranchExists)
+                    {
+                        return (true, $"origin/{branchName}", $"origin/{branchName}", null);
+                    }
                 }
 
-                return (false, null, null, "Could not find local 'main' or 'origin/main' to create the new branch from.");
+                return (false, null, null, "Could not find local 'main' or 'master', or origin 'main' or 'master' to create the new branch from.");
             }
 
             case CreateBranchBase.OriginMain:
             {
-                var originMainExists = await GitRefExistsAsync(repositoryRoot, "refs/remotes/origin/main", ct);
-                return originMainExists
-                    ? (true, "origin/main", "origin/main", null)
-                    : (false, null, null, "Could not find 'origin/main' to create the new branch from.");
+                foreach (var branchName in new[] { "main", "master" })
+                {
+                    var originBranchExists = await GitRefExistsAsync(repositoryRoot, $"refs/remotes/origin/{branchName}", ct);
+                    if (originBranchExists)
+                    {
+                        return (true, $"origin/{branchName}", $"origin/{branchName}", null);
+                    }
+                }
+
+                return (false, null, null, "Could not find 'origin/main' or 'origin/master' to create the new branch from.");
             }
 
             default:
